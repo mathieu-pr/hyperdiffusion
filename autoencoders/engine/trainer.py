@@ -5,33 +5,41 @@ from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
 import torch
-import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 import wandb
 
 from utils.logger import log_metrics
-from utils.metrics import psnr
+from utils.metrics import psnr  # cheap validation metric
 
 
 class Trainer:
     """
     Framework-free trainer.
 
-    • Expects a namespace with .train, optional .val (and maybe .test)
-    • Builds its own DataLoaders
-    • Logs all metrics through utils.logger.log_metrics → wandb
-    • Tracks cfg.trainer.monitor and keeps the best checkpoint
+    • expects obj.train (Dataset) and optional obj.val (Dataset)
+    • builds its own DataLoader
+    • logs via utils.logger.log_metrics (→ wandb)
+    • saves best checkpoint according to cfg.trainer.monitor
     """
 
     # ------------------------------------------------------------------ #
-    def __init__(self, model, datamodule, cfg, run_name: str):
+    def __init__(self, model, splits, cfg, run_name: str):
+        """
+        Parameters
+        ----------
+        model   : nn.Module
+        splits  : any object with `.train` and (opt.) `.val` attrs
+        cfg     : OmegaConf DictConfig
+        run_name: str – wandb run name, used in ckpt filenames
+        """
         self.model = model.to(cfg.device)
         self.cfg = cfg
+        self.run_name = run_name
 
-        # ─── loaders --------------------------------------------------- #
+        # ----------------- DataLoaders ------------------ #
         self.train_loader = DataLoader(
-            datamodule.train,
+            splits.train,
             batch_size=cfg.trainer.batch_size,
             shuffle=True,
             num_workers=cfg.dataset.num_workers,
@@ -40,34 +48,33 @@ class Trainer:
 
         self.val_loader = (
             DataLoader(
-                datamodule.val,
+                splits.val,
                 batch_size=cfg.trainer.batch_size,
                 shuffle=False,
                 num_workers=cfg.dataset.num_workers,
                 pin_memory=False,
             )
-            if getattr(datamodule, "val", None) is not None
+            if hasattr(splits, "val") and splits.val is not None
             else None
         )
 
-        # ─── optimiser ------------------------------------------------ #
+        # ---------------- Optimiser --------------------- #
         self.opt = torch.optim.Adam(
             self.model.parameters(),
             lr=cfg.optimizer.lr,
             weight_decay=cfg.optimizer.wd,
         )
 
-        # ─── checkpoint bookkeeping ----------------------------------- #
-        self.ckpt_dir: Path = Path(cfg.trainer.ckpt_dir)
+        # ------------- Checkpoint bookkeeping ---------- #
+        self.ckpt_dir = Path(cfg.trainer.ckpt_dir)
         self.ckpt_dir.mkdir(parents=True, exist_ok=True)
+
+        self.monitor = cfg.trainer.monitor      # e.g. "val/psnr"
+        self.mode = cfg.trainer.mode.lower()    # "min" or "max"
+        assert self.mode in {"min", "max"}
         self.best_value: float | None = None
         self.best_path: Path | None = None
-        self.monitor = cfg.trainer.monitor          # e.g. "val/psnr"
-        self.mode = cfg.trainer.mode.lower()        # "min" or "max"
-        assert self.mode in {"min", "max"}, "trainer.mode must be 'min' or 'max'"
-
-        # strip "val/" or "train/" prefix for convenience
-        self._monitor_key = self.monitor.split("/", 1)[-1]
+        self._monitor_key = self.monitor.split("/", 1)[1] if "/" in self.monitor else self.monitor
 
     # ------------------------------------------------------------------ #
     def _train_step(self, batch: List[torch.Tensor]) -> Tuple[torch.Tensor, Dict[str, Any]]:
@@ -77,7 +84,6 @@ class Trainer:
         loss.backward()
         self.opt.step()
         self.opt.zero_grad(set_to_none=True)
-
         return loss.detach(), {k: float(v) for k, v in logs.items()}
 
     # ------------------------------------------------------------------ #
@@ -87,39 +93,34 @@ class Trainer:
             return {}
 
         self.model.eval()
-        psnr_vals, recon_vals = [], []
-
+        psnr_vals, recon_losses = [], []
         for batch in self.val_loader:
             batch = [x.to(self.cfg.device) for x in batch]
             x = batch[0]
             x_hat = self.model(x)
-
             psnr_vals.append(psnr(x_hat, x).item())
-            recon_vals.append(F.mse_loss(x_hat, x).item())
-
+            recon_losses.append(torch.nn.functional.mse_loss(x_hat, x).item())
         self.model.train()
+
         return {
-            "val/psnr": sum(psnr_vals)  / len(psnr_vals),
-            "val/loss": sum(recon_vals) / len(recon_vals),
+            "val/psnr": sum(psnr_vals) / len(psnr_vals),
+            "val/loss": sum(recon_losses) / len(recon_losses),
         }
 
     # ------------------------------------------------------------------ #
-    def _is_better(self, new_val: float) -> bool:
+    def _is_better(self, current: float) -> bool:
         if self.best_value is None:
             return True
-        return (new_val < self.best_value) if self.mode == "min" else (new_val > self.best_value)
+        return (current < self.best_value) if self.mode == "min" else (current > self.best_value)
 
-    # ------------------------------------------------------------------ #
-    def _maybe_save_best(self, logs: Dict[str, float], epoch: int) -> None:
-        if self._monitor_key not in logs:
+    def _maybe_save_best(self, val_logs: Dict[str, float], epoch: int) -> None:
+        if self._monitor_key not in val_logs:
             return
-
-        current = logs[self._monitor_key]
+        current = val_logs[self._monitor_key]
         if self._is_better(current):
             self.best_value = current
             self.best_path = self.ckpt_dir / f"best_epoch{epoch}.pt"
             torch.save(self.model.state_dict(), self.best_path)
-
             if wandb.run:
                 wandb.save(str(self.best_path))
                 wandb.run.summary[f"best_{self._monitor_key}"] = current
@@ -127,9 +128,8 @@ class Trainer:
     # ------------------------------------------------------------------ #
     def fit(self) -> None:
         global_step = 0
-
         for epoch in range(self.cfg.trainer.max_epochs):
-            pbar = tqdm(self.train_loader, dynamic_ncols=True, desc=f"epoch {epoch}")
+            pbar = tqdm(self.train_loader, desc=f"epoch {epoch}", dynamic_ncols=True)
             for batch in pbar:
                 loss, logs = self._train_step(batch)
                 log_metrics(step=global_step, loss=loss.item(), **logs)
