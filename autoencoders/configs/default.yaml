@@ -1,11 +1,16 @@
 defaults:
-  - dataset: weight_dataset
   - model: ae
   - _self_
 
+
+
+# ───────── model ───────── #
+model:
+  input_dim: 36737
+
 # ───────── global flags ───────── #
 run_name: debug_run
-device: cuda
+device: cpu
 seed: 42
 
 # ───────── logging ─────────── #
@@ -28,9 +33,17 @@ trainer:
 
 
 dataset:
-  root: /path/to/dataset
-  model_dims: [ ... ]
-  mlp_kwargs: { ... }
+  root: ${hydra:runtime.cwd}/mlp_weights/Plane
+  model_dims: [256, 256]
+  mlp_kwargs: {}
+  val_split: 0.10
+  test_split: 0.10
+  num_workers: 2
 
-  val_split:  0.10  
-  test_split: 0.10  
+  filter_bad: false   
+  augment: none               # or "permute", "sort_permute", etc.
+  jitter_augment: false
+
+  transformer_config:
+    params:
+      condition: false

@@ -9,10 +9,10 @@ Fast-setup entry-point.
 Run examples
 ------------
 # train auto-encoder
-python -m cli model=ae run_name=ae_demo
+python -m train model=ae run_name=ae_demo
 
 # override split ratios
-python -m cli dataset.val_split=0.05 dataset.test_split=0.15
+python -m train dataset.val_split=0.05 dataset.test_split=0.15
 
 Assumes:
 • configs/default.yaml is the root config
@@ -20,22 +20,28 @@ Assumes:
 • build_model(cfg) is defined in models/registry.py
 """
 
+
 from __future__ import annotations
+
+
+import os
+os.environ["HYDRA_FULL_ERROR"] = "1"
+
 
 from pathlib import Path
 from types import SimpleNamespace
 
 import hydra
+from hydra.utils import instantiate
+
 import numpy as np
 import torch
 from omegaconf import DictConfig
 from torch.utils.data import DataLoader, Subset, random_split
 
 from engine.trainer import Trainer
-from models.registry import build_model
 from utils.logger import init_wandb
 
-import os
 import sys
 
 # add the parent directory to the path
@@ -88,7 +94,7 @@ def _build_splits(
 
 
 # ---------------------------------------------------------------------- #
-@hydra.main(config_path="configs", config_name="default")
+@hydra.main(version_base=None, config_path="configs", config_name="default")
 def main(cfg: DictConfig):
     # 1.  initialise wandb
     run = init_wandb(cfg, run_name=cfg.run_name)
@@ -113,7 +119,7 @@ def main(cfg: DictConfig):
     datamodule = SimpleNamespace(train=train_set, val=val_set, test=test_set)
 
     # 5.  instantiate the model from YAML (_target_ field)
-    model = build_model(cfg)
+    model = instantiate(cfg.model)
 
     # 6.  launch training
     trainer = Trainer(model, datamodule, cfg, run_name=run.name)

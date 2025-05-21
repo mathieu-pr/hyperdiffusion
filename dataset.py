@@ -217,13 +217,28 @@ class WeightDataset(Dataset):
 
     def __getitem__(self, index):
         file = self.mlp_files[index]
+        
         dir = join(self.mlps_folder, file)
-        if os.path.isdir(dir):
-            path1 = join(dir, "checkpoints", "model_final.pth")
-            path2 = join(dir, "checkpoints", "model_current.pth")
-            state_dict = torch.load(path1 if os.path.exists(path1) else path2)
+
+        # case A: .pth file is directly the entry
+        if file.endswith(".pth"):
+            state_dict = torch.load(dir, map_location="cpu")
+
+        # case B: directory that already holds *_model_final.pth
+        elif os.path.isdir(dir):
+            # search for …_model_final.pth or …_model_current.pth inside dir
+            import glob
+            candidates = sorted(
+                glob.glob(join(dir, "*model_final.pth")) +
+                glob.glob(join(dir, "*model_current.pth"))
+            )
+            if not candidates:
+                raise FileNotFoundError(f"No checkpoint found in {dir}")
+            state_dict = torch.load(candidates[0], map_location="cpu")
+
         else:
-            state_dict = torch.load(dir, map_location=torch.device("cpu"))
+            raise FileNotFoundError(f"{dir} is neither .pth file nor directory")
+
 
         weights, weights_prev = self.get_weights(state_dict)
 

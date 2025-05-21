@@ -1,4 +1,4 @@
 # ----- Plain Auto-Encoder -----------------------------------------
-_target_: src.models.ae.AutoEncoder   # dotted path to the nn.Module
+_target_: autoencoders.models.ae.AutoEncoder  # dotted path to the nn.Module
 latent_dim: 128                       # size of z
 hidden_dims: [512, 256, 128]          # encoder & decoder MLP widths

@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+
 from .base import BaseAE
 
 class VQVAE(BaseAE):

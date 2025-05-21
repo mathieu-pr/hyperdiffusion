@@ -25,36 +25,29 @@ class Trainer:
 
     # ------------------------------------------------------------------ #
     def __init__(self, model, splits, cfg, run_name: str):
-        """
-        Parameters
-        ----------
-        model   : nn.Module
-        splits  : any object with `.train` and (opt.) `.val` attrs
-        cfg     : OmegaConf DictConfig
-        run_name: str – wandb run name, used in ckpt filenames
-        """
-        self.model = model.to(cfg.device)
         self.cfg = cfg
+        self.device = torch.device(cfg.device)          # ← NO fallback
+        self.model = model.to(self.device)
         self.run_name = run_name
 
         # ----------------- DataLoaders ------------------ #
+        pin = self.device.type == "cuda"
         self.train_loader = DataLoader(
             splits.train,
             batch_size=cfg.trainer.batch_size,
             shuffle=True,
             num_workers=cfg.dataset.num_workers,
-            pin_memory=False,
+            pin_memory=pin,
         )
-
         self.val_loader = (
             DataLoader(
                 splits.val,
                 batch_size=cfg.trainer.batch_size,
                 shuffle=False,
                 num_workers=cfg.dataset.num_workers,
-                pin_memory=False,
+                pin_memory=pin,
             )
-            if hasattr(splits, "val") and splits.val is not None
+            if getattr(splits, "val", None) is not None
             else None
         )
 
@@ -69,12 +62,14 @@ class Trainer:
         self.ckpt_dir = Path(cfg.trainer.ckpt_dir)
         self.ckpt_dir.mkdir(parents=True, exist_ok=True)
 
-        self.monitor = cfg.trainer.monitor      # e.g. "val/psnr"
-        self.mode = cfg.trainer.mode.lower()    # "min" or "max"
+        self.monitor = cfg.trainer.monitor
+        self.mode = cfg.trainer.mode.lower()
         assert self.mode in {"min", "max"}
         self.best_value: float | None = None
         self.best_path: Path | None = None
-        self._monitor_key = self.monitor.split("/", 1)[1] if "/" in self.monitor else self.monitor
+        self._monitor_key = (
+            self.monitor.split("/", 1)[1] if "/" in self.monitor else self.monitor
+        )
 
     # ------------------------------------------------------------------ #
     def _train_step(self, batch: List[torch.Tensor]) -> Tuple[torch.Tensor, Dict[str, Any]]:

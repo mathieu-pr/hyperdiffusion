@@ -26,7 +26,6 @@ from torch.utils.data import Subset
 
 from data.weight_dataset import WeightDataset
 from engine.evaluator import Evaluator
-from models.registry import build_model
 from utils.logger import init_wandb
 
 
