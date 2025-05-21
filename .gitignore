@@ -141,3 +141,7 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+
+#don't add mlp_weights/Plane to git
+mlp_weights/Plane

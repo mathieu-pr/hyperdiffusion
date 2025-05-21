@@ -1,0 +1,36 @@
+defaults:
+  - dataset: weight_dataset
+  - model: ae
+  - _self_
+
+# ───────── global flags ───────── #
+run_name: debug_run
+device: cuda
+seed: 42
+
+# ───────── logging ─────────── #
+logging:
+  project: mlp_autoencoders
+  log_dir: ${hydra:runtime.cwd}/logs
+
+# ───────── optimiser ───────── #
+optimizer:
+  lr: 1e-3
+  wd: 1e-5
+
+# ───────── trainer ─────────── #
+trainer:
+  batch_size: 256
+  max_epochs: 200
+  ckpt_dir: ${hydra:runtime.cwd}/checkpoints   # where files land
+  monitor: val/psnr                            # scalar name to watch
+  mode: max                                    # "min" for losses, "max" for scores
+
+
+dataset:
+  root: /path/to/dataset
+  model_dims: [ ... ]
+  mlp_kwargs: { ... }
+
+  val_split:  0.10  
+  test_split: 0.10  

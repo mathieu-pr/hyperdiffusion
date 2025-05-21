@@ -1,0 +1,10 @@
+# ----- Variational Auto-Encoder -----------------------------------
+_target_: src.models.vae.VariationalAutoEncoder
+
+# architecture
+latent_dim: 128
+hidden_dims: [512, 256, 128]
+
+# loss hyper-parameters
+beta: 1.0           # KL weight   (β-VAE if ≠ 1)
+recon_loss: "mse"   # could switch to "l1"

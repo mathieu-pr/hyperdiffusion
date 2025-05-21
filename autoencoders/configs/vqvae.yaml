@@ -1,0 +1,11 @@
+# ----- Vector-Quantised VAE ---------------------------------------
+_target_: src.models.vqvae.VQVAE
+
+# architecture
+latent_dim: 256         # dim of encoded continuous vectors *before* quant.
+hidden_dims: [512, 256, 128]
+
+# codebook
+codebook_size: 512       # K in “K-means” quantiser
+commitment_cost: 0.25    # β in VQ-VAE paper
+decay: 0.99              # EMA decay for codebook updates
