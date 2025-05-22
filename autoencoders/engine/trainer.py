@@ -108,6 +108,7 @@ class Trainer:
             return True
         return (current < self.best_value) if self.mode == "min" else (current > self.best_value)
 
+    # ------------------------------------------------------------------ #
     def _maybe_save_best(self, val_logs: Dict[str, float], epoch: int) -> None:
         if self._monitor_key not in val_logs:
             return
@@ -117,7 +118,9 @@ class Trainer:
             self.best_path = self.ckpt_dir / f"best_epoch{epoch}.pt"
             torch.save(self.model.state_dict(), self.best_path)
             if wandb.run:
-                wandb.save(str(self.best_path))
+                artifact = wandb.Artifact("best_model", type="model")
+                artifact.add_file(str(self.best_path))
+                wandb.log_artifact(artifact)
                 wandb.run.summary[f"best_{self._monitor_key}"] = current
 
     # ------------------------------------------------------------------ #
@@ -140,4 +143,7 @@ class Trainer:
         final_ckpt = self.ckpt_dir / "last.pt"
         torch.save(self.model.state_dict(), final_ckpt)
         if wandb.run:
-            wandb.save(str(final_ckpt))
+            artifact = wandb.Artifact("final_model", type="model")
+            artifact.add_file(str(final_ckpt))
+            wandb.log_artifact(artifact)
+
