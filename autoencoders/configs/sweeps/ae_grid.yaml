@@ -1,0 +1,16 @@
+# @package _global_
+defaults:
+  - override /hydra/sweeper: experiment
+
+hydra:
+  sweep:
+      dir: autoencoders/sweeps_log/${now:%Y-%m-%d}/${now:%H-%M-%S}
+  sweeper:
+    max_batch_size: 1
+    overrides:
+      # optimizer.lr: 1e-3,5e-4,1e-4
+      model.latent_dim: 32, 64,128,256
+      # trainer.batch_size: 32
+      # model.hidden_dims: "[512,256,128]"
+    
+      run_name: sweep_latent_dim

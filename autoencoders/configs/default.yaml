@@ -16,7 +16,7 @@ seed: 42
 # ───────── logging ─────────── #
 logging:
   project: mlp_autoencoders
-  log_dir: ${hydra:runtime.cwd}/logs
+  log_dir: ${hydra:runtime.cwd}/autoencoders/logs
 
 # ───────── optimiser ───────── #
 optimizer:
@@ -25,11 +25,13 @@ optimizer:
 
 # ───────── trainer ─────────── #
 trainer:
-  batch_size: 256
-  max_epochs: 200
-  ckpt_dir: ${hydra:runtime.cwd}/checkpoints   # where files land
+  model_name: ae
+  batch_size: 32
+  ckpt_dir: ${hydra:runtime.cwd}/autoencoders/checkpoints   # where files land
   monitor: val/psnr                            # scalar name to watch
   mode: max                                    # "min" for losses, "max" for scores
+  max_epochs: 5
+
 
 
 dataset:

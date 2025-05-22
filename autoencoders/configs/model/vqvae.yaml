@@ -1,6 +1,7 @@
 # ----- Vector-Quantised VAE ---------------------------------------
 _target_: src.models.vqvae.VQVAE
 
+
 # architecture
 latent_dim: 256         # dim of encoded continuous vectors *before* quant.
 hidden_dims: [512, 256, 128]

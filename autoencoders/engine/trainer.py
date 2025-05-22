@@ -10,7 +10,8 @@ from tqdm import tqdm
 import wandb
 
 from utils.logger import log_metrics
-from utils.metrics import psnr  # cheap validation metric
+
+from datetime import datetime
 
 
 class Trainer:
@@ -59,7 +60,8 @@ class Trainer:
         )
 
         # ------------- Checkpoint bookkeeping ---------- #
-        self.ckpt_dir = Path(cfg.trainer.ckpt_dir)
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        self.ckpt_dir = Path(cfg.trainer.ckpt_dir, f"{cfg.trainer.model_name}", f"{timestamp}_{run_name}")
         self.ckpt_dir.mkdir(parents=True, exist_ok=True)
 
         self.monitor = cfg.trainer.monitor
@@ -88,17 +90,15 @@ class Trainer:
             return {}
 
         self.model.eval()
-        psnr_vals, recon_losses = [], []
+        recon_losses = []
         for batch in self.val_loader:
             batch = [x.to(self.cfg.device) for x in batch]
             x = batch[0]
             x_hat = self.model(x)
-            psnr_vals.append(psnr(x_hat, x).item())
             recon_losses.append(torch.nn.functional.mse_loss(x_hat, x).item())
         self.model.train()
 
         return {
-            "val/psnr": sum(psnr_vals) / len(psnr_vals),
             "val/loss": sum(recon_losses) / len(recon_losses),
         }
 
@@ -140,7 +140,8 @@ class Trainer:
                 self._maybe_save_best(val_logs, epoch)
 
         # save final weights
-        final_ckpt = self.ckpt_dir / "last.pt"
+        final_epoch = self.cfg.trainer.max_epochs - 1
+        final_ckpt = self.ckpt_dir / f"last_epoch{final_epoch}.pt"
         torch.save(self.model.state_dict(), final_ckpt)
         if wandb.run:
             artifact = wandb.Artifact("final_model", type="model")
