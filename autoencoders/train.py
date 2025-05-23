@@ -90,7 +90,7 @@ def _build_splits(
 
 
     print(f"\n\ncreating new split: {split_file_with_info}")
-    print(f"train_len: {train_len}, val_len: {val_len}, test_len: {test_len}")
+    print(f"train_len: {train_len}, val_len: {val_len}, test_len: {test_len}\n\n")
 
     g = torch.Generator().manual_seed(cfg.seed)
     train_set, val_set, test_set = random_split(
@@ -135,7 +135,7 @@ def main(cfg: DictConfig):
     ckpt_dir.mkdir(parents=True, exist_ok=True)
     split_file = ckpt_dir / "splits.npz"
 
-    print(f"\nlen(full_ds): {len(full_ds)}\n")
+    print(f"\nlen(full_ds): {len(full_ds)}")
 
     train_set, val_set, test_set = _build_splits(full_ds, cfg, split_file)
 
