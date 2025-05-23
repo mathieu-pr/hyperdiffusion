@@ -115,6 +115,9 @@ def main(cfg: DictConfig):
     # 1.  initialise wandb
     run = init_wandb(cfg, run_name=cfg.run_name)
 
+    print(f"\n\n{run.name} - {cfg.trainer.model_name}\n")
+    print(f"cfg.model: {cfg.model}\n")
+
 
     print(f"\ncfg.dataset.root: {cfg.dataset.root}\n")
 
