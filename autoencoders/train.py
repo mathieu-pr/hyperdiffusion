@@ -48,6 +48,7 @@ import sys
 # this is needed to import the dataset module
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from dataset import WeightDataset
+from datetime import datetime
 
 
 # ----------------------------- helpers -------------------------------- #
@@ -62,14 +63,18 @@ def _build_splits(
     * If `split_file` exists → reload index arrays and build Subsets.
     * Else  → draw deterministic split, save indices, and return Subsets.
     """
-    if split_file.exists():
-        idx = np.load(split_file)
-        train_idx, val_idx, test_idx = idx["train"], idx["val"], idx["test"]
-        return (
-            Subset(full_ds, train_idx),
-            Subset(full_ds, val_idx) if len(val_idx) else None,
-            Subset(full_ds, test_idx) if len(test_idx) else None,
-        )
+    # if split_file.exists():
+    #     print(f"\n\nloading existing split from {split_file}")
+    #     idx = np.load(split_file)
+    #     train_idx, val_idx, test_idx = idx["train"], idx["val"], idx["test"]
+
+    #     print(f"train_len: {len(train_idx)}, val_len: {len(val_idx)}, test_len: {len(test_idx)}")
+        
+    #     return (
+    #         Subset(full_ds, train_idx),
+    #         Subset(full_ds, val_idx) if len(val_idx) else None,
+    #         Subset(full_ds, test_idx) if len(test_idx) else None,
+    #     )
 
     # ---------- first time: create the split deterministically ----------
     total_len = len(full_ds)
@@ -77,14 +82,25 @@ def _build_splits(
     test_len = int(total_len * cfg.dataset.test_split)
     train_len = total_len - val_len - test_len
 
+    # create a descriptive split file name with date, seed, and split ratios
+    date_str = datetime.now().strftime("%Y%m%d")
+    split_file_with_info = split_file.parent / (
+        f"splits_{date_str}_seed{cfg.seed}_totallen{total_len}_val{cfg.dataset.val_split}_test{cfg.dataset.test_split}.npz"
+    )
+
+
+    print(f"\n\ncreating new split: {split_file_with_info}")
+    print(f"train_len: {train_len}, val_len: {val_len}, test_len: {test_len}")
+
     g = torch.Generator().manual_seed(cfg.seed)
     train_set, val_set, test_set = random_split(
         full_ds, [train_len, val_len, test_len], generator=g
     )
 
+    
     # stash the integer index arrays for reproducibility
     np.savez(
-        split_file,
+        split_file_with_info,
         train=np.array(train_set.indices, dtype=np.int64),
         val=np.array(val_set.indices, dtype=np.int64),
         test=np.array(test_set.indices, dtype=np.int64),
@@ -99,6 +115,9 @@ def main(cfg: DictConfig):
     # 1.  initialise wandb
     run = init_wandb(cfg, run_name=cfg.run_name)
 
+
+    print(f"\ncfg.dataset.root: {cfg.dataset.root}\n")
+
     # 2.  build the full WeightDataset
     full_ds = WeightDataset(
         mlps_folder=cfg.dataset.root,
@@ -112,6 +131,8 @@ def main(cfg: DictConfig):
     ckpt_dir = Path(cfg.trainer.ckpt_dir)
     ckpt_dir.mkdir(parents=True, exist_ok=True)
     split_file = ckpt_dir / "splits.npz"
+
+    print(f"\nlen(full_ds): {len(full_ds)}\n")
 
     train_set, val_set, test_set = _build_splits(full_ds, cfg, split_file)
 

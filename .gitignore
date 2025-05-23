@@ -147,3 +147,5 @@ dmypy.json
 mlp_weights/Plane
 autoencoders/checkpoints
 autoencoders/sweeps_log
+autoencoders/logs
+autoencoders/outputs

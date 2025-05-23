@@ -31,3 +31,5 @@ def log_metrics(step: int | None = None, **kwargs):
     """
     if wandb.run:
         wandb.log(kwargs, step=step)
+    else:
+        print("wandb not initialised, skipping log_metrics")

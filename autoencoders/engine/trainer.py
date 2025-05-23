@@ -87,6 +87,7 @@ class Trainer:
     @torch.no_grad()
     def _validate_epoch(self) -> Dict[str, float]:
         if self.val_loader is None:
+            print("!No validation set provided!")
             return {}
 
         self.model.eval()
@@ -99,7 +100,7 @@ class Trainer:
         self.model.train()
 
         return {
-            "val/loss": sum(recon_losses) / len(recon_losses),
+            "val_recon_epoch": sum(recon_losses) / len(recon_losses),
         }
 
     # ------------------------------------------------------------------ #
@@ -127,6 +128,8 @@ class Trainer:
     def fit(self) -> None:
         global_step = 0
         for epoch in range(self.cfg.trainer.max_epochs):
+            
+
             pbar = tqdm(self.train_loader, desc=f"epoch {epoch}", dynamic_ncols=True)
             for batch in pbar:
                 loss, logs = self._train_step(batch)
@@ -136,8 +139,11 @@ class Trainer:
 
             val_logs = self._validate_epoch()
             if val_logs:
-                log_metrics(step=global_step, **val_logs)
+                log_metrics(step=global_step, **val_logs, epoch=epoch+1)
                 self._maybe_save_best(val_logs, epoch)
+
+            #log the train_loss_epoch   
+            log_metrics(step=global_step, train_loss_epoch=loss.item(), epoch=epoch+1)
 
         # save final weights
         final_epoch = self.cfg.trainer.max_epochs - 1
