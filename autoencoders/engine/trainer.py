@@ -27,9 +27,13 @@ class Trainer:
     # ------------------------------------------------------------------ #
     def __init__(self, model, splits, cfg, run_name: str):
         self.cfg = cfg
+        print(f"Device: {cfg.device}")
         self.device = torch.device(cfg.device)          # ← NO fallback
         self.model = model.to(self.device)
         self.run_name = run_name
+
+        num_params = sum(p.numel() for p in self.model.parameters())
+        print(f"Model has {num_params:,} parameters.\n")
 
         # ----------------- DataLoaders ------------------ #
         pin = self.device.type == "cuda"
@@ -96,6 +100,7 @@ class Trainer:
             batch = [x.to(self.cfg.device) for x in batch]
             x = batch[0]
             x_hat = self.model(x)
+            # recon_losses.append(torch.nn.functional.mse_loss(x_hat, x).item())
             recon_losses.append(torch.nn.functional.mse_loss(x_hat, x).item())
         self.model.train()
 
@@ -126,16 +131,18 @@ class Trainer:
 
     # ------------------------------------------------------------------ #
     def fit(self) -> None:
+        print("New with loss on full train set at the end of each epoch")
         global_step = 0
         for epoch in range(self.cfg.trainer.max_epochs):
             
-
+            train_loss_epoch_list = []
             pbar = tqdm(self.train_loader, desc=f"epoch {epoch}", dynamic_ncols=True)
             for batch in pbar:
                 loss, logs = self._train_step(batch)
                 log_metrics(step=global_step, loss=loss.item(), **logs)
                 pbar.set_postfix(loss=f"{loss.item():.4f}")
                 global_step += 1
+                train_loss_epoch_list.append(loss.item())
 
             val_logs = self._validate_epoch()
             if val_logs:
@@ -143,14 +150,29 @@ class Trainer:
                 self._maybe_save_best(val_logs, epoch)
 
             #log the train_loss_epoch   
-            log_metrics(step=global_step, train_loss_epoch=loss.item(), epoch=epoch+1)
+            # train_loss_epoch = sum(train_loss_epoch_list) / len(train_loss_epoch_list)
+            # log_metrics(step=global_step, train_loss_epoch=train_loss_epoch, epoch=epoch+1)
+
+            # Evaluate the model on the full training set
+            self.model.eval()
+            train_recon_losses = []
+            with torch.no_grad():
+                for train_batch in self.train_loader:
+                    train_batch = [x.to(self.cfg.device) for x in train_batch]
+                    x = train_batch[0]
+                    x_hat = self.model(x)
+                    train_recon_losses.append(torch.nn.functional.mse_loss(x_hat, x).item())
+            self.model.train()
+            train_loss_epoch = sum(train_recon_losses) / len(train_recon_losses)
+            log_metrics(step=global_step, train_loss_epoch=train_loss_epoch, epoch=epoch+1)
 
         # save final weights
         final_epoch = self.cfg.trainer.max_epochs - 1
         final_ckpt = self.ckpt_dir / f"last_epoch{final_epoch}.pt"
         torch.save(self.model.state_dict(), final_ckpt)
-        if wandb.run:
-            artifact = wandb.Artifact("final_model", type="model")
-            artifact.add_file(str(final_ckpt))
-            wandb.log_artifact(artifact)
+
+        # if wandb.run:    #use wandb to log the final model (disabled to save space)
+        #     artifact = wandb.Artifact("final_model", type="model")
+        #     artifact.add_file(str(final_ckpt))
+        #     wandb.log_artifact(artifact)
 
