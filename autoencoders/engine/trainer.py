@@ -9,6 +9,7 @@ import torch
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 import wandb
+import copy
 
 from utils.logger import log_metrics
 
@@ -26,6 +27,7 @@ class Trainer:
 
     # ------------------------------------------------------------------ #
     def __init__(self, model, splits, cfg, run_name: str):
+        print("-Version-: periodic backup of the best model, early stopping save")
         self.cfg = cfg
         print(f"Device: {cfg.device}")
         self.device = torch.device(cfg.device)          # ← NO fallback
@@ -78,6 +80,9 @@ class Trainer:
         assert self.mode in {"min", "max"}
         self.best_value: float | None = None
         self.best_path: Path | None = None
+
+        self.best_state_dict: dict[str, torch.Tensor] | None = None   # NEW
+        self._last_backup_epoch: int | None = None                    # NEW
         self._monitor_key = (
             self.monitor.split("/", 1)[1] if "/" in self.monitor else self.monitor
         )
@@ -86,7 +91,7 @@ class Trainer:
         self.patience = int(cfg.trainer.patience)   # NEW (early-stop)
         self._epochs_without_improve = 0            # NEW (early-stop)
 
-        print(f"Patience for early stopping: {self.patience}\n")
+        print(f"Patience for early stopping: {self.patience}, mode of comparison is: {self.mode}.\n")
 
     # ------------------------------------------------------------------ #
     def _train_step(self, batch: List[torch.Tensor]) -> Tuple[torch.Tensor, Dict[str, Any]]:
@@ -127,42 +132,81 @@ class Trainer:
     # ------------------------------------------------------------------ #
     def _maybe_save_best(self, val_logs: Dict[str, float], epoch: int) -> None:
         """
-        Save a checkpoint iff:
+        Save a checkpoint iff: (not used for now)
           • the monitored metric improved AND
-          • epoch >= 20  (requested behaviour)
+          • epoch >= 10  (requested behaviour)
         """
         if self._monitor_key not in val_logs:
+            print(f"\nWarning: {self._monitor_key} not found in validation logs.")
+            print(f"Available keys: {list(val_logs.keys())}\n")
             return
 
         current = val_logs[self._monitor_key]
         improvement = self._is_better(current)
-
-        # -------- bookkeeping for early stopping -------- #
+        best_value_str = f"{self.best_value:.4f}" if self.best_value is not None else "N/A"
+        print(f".....Epoch {epoch}: {self._monitor_key} = {current:.4f} (best: {best_value_str})")
+        # -------- bookkeeping for early stopping & in-RAM copy -------- #
         if improvement:
+            print(f"Improvement detected: {self._monitor_key} improved from {best_value_str} to {current:.4f}")
             self.best_value = current
-            self._epochs_without_improve = 0        # NEW (early-stop)
+            self.best_state_dict = copy.deepcopy(
+                {k: v.detach().cpu() for k, v in self.model.state_dict().items()}
+            )                                          # NEW
+            self._epochs_without_improve = 0
         else:
-            self._epochs_without_improve += 1       # NEW (early-stop)
-
-        if not improvement or epoch < 20:           # NEW (best-ckpt condition)
+            self._epochs_without_improve += 1
+        # ---------- write the checkpoint when IMPROVED --------------- #
+        if (not improvement) or epoch < 0:
             return
+        
+        # loss_str = f"{current:.4f}".replace(".", "_")
+        # self.best_path = self.ckpt_dir / f"best_epoch{epoch}_vl{loss_str}.pt"
+        # torch.save(self.best_state_dict, self.best_path)              # CHANGED            # CHANGED
+    
+        # print(f"New best {self._monitor_key} at epoch {epoch}: {current:.4f}")
+        # print(f"Saved to {self.best_path}\n")
 
-        # ---------- write the checkpoint --------------- #
-        # filename: best_epoch{epoch}_vl{val_loss:.4f}.pt
-        loss_str = f"{current:.4f}".replace(".", "_")     # avoid dots in filename
-        self.best_path = self.ckpt_dir / f"best_epoch{epoch}_vl{loss_str}.pt"
-        torch.save(self.model.state_dict(), self.best_path)
-
-        if wandb.run:
-            artifact = wandb.Artifact("best_model", type="model")
-            artifact.add_file(str(self.best_path))
-            wandb.log_artifact(artifact)
-            wandb.run.summary[f"best_{self._monitor_key}"] = current
+        # if wandb.run:
+        #     artifact = wandb.Artifact("best_model", type="model")
+        #     artifact.add_file(str(self.best_path))
+        #     wandb.log_artifact(artifact)
+        #     wandb.run.summary[f"best_{self._monitor_key}"] = current
 
     # ------------------------------------------------------------------ #
     def _should_stop_early(self) -> bool:            # NEW (early-stop)
         """Return True when patience is exceeded."""
         return self.patience > 0 and self._epochs_without_improve >= self.patience
+
+
+
+    # ------------------------------------------------------------------ #
+    def _periodic_backup(self, epoch: int) -> None:                    # NEW
+        """Every 5 epochs write the in-RAM best snapshot, unless we already
+        wrote one during this epoch."""
+        if self.best_state_dict is None:
+            return
+        if (epoch+1) % 5 != 0:      # epochs start at 0 ⇒ 0,5,10,… OR use (epoch+1)%5==0
+            return
+        if self._last_backup_epoch == epoch:   # already saved because metric improved
+            return
+        loss_str = f"{self.best_value:.4f}".replace(".", "_")
+        path = self.ckpt_dir / f"backup_epoch{epoch}_vl{loss_str}.pt"
+        torch.save(self.best_state_dict, path)
+        self._last_backup_epoch = epoch
+        print(f"Periodic backup written to {path}")
+
+
+    # ------------------------------------------------------------------ #
+    def _save_best_on_early_stop(self) -> None:                        # NEW
+        """Write best weights to the final filename when early stopping kicks in."""
+        if self.best_state_dict is None:
+            print("Early stop, but no best_state_dict found – nothing saved.")
+            return
+        loss_str = f"{self.best_value:.4f}".replace(".", "_")
+        path = self.ckpt_dir / f"best_model_run_vl{loss_str}.pt"
+        torch.save(self.best_state_dict, path)
+        print(f"Early-stopping: best model (vl={self.best_value:.4f}) saved to {path}")
+
 
     # ------------------------------------------------------------------ #
     def fit(self) -> None:
@@ -184,9 +228,12 @@ class Trainer:
             if val_logs:
                 log_metrics(step=global_step, **val_logs, epoch=epoch + 1)
                 self._maybe_save_best(val_logs, epoch)
+            
+            self._periodic_backup(epoch) 
 
             # ---------------- early-stopping ---------------- #
-            if self._should_stop_early():            # NEW (early-stop)
+            if self._should_stop_early():  
+                self._save_best_on_early_stop()         
                 print(
                     f"Stopping early after epoch {epoch} – "
                     f"no improvement in {self.patience} epochs."
@@ -205,6 +252,7 @@ class Trainer:
             self.model.train()
             train_loss_epoch = sum(train_recon_losses) / len(train_recon_losses)
             log_metrics(step=global_step, train_loss_epoch=train_loss_epoch, epoch=epoch + 1)
+
 
         # save final weights (the loop may have broken early)
         final_epoch = epoch   # last finished epoch

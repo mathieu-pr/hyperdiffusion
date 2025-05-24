@@ -9,16 +9,26 @@ from .base import BaseAE
 class AutoEncoder(BaseAE):
     def __init__(self, input_dim: int, latent_dim: int, hidden_dims: list[int]):
         super().__init__()
-        self.encoder = nn.Sequential(
-            nn.Linear(input_dim, hidden_dims[0]),
-            nn.ReLU(),
-            nn.Linear(hidden_dims[0], latent_dim),
-        )
-        self.decoder = nn.Sequential(
-            nn.Linear(latent_dim, hidden_dims[0]),
-            nn.ReLU(),
-            nn.Linear(hidden_dims[0], input_dim),
-        )
+
+        # Build encoder
+        encoder_layers = []
+        prev_dim = input_dim
+        for h_dim in hidden_dims:
+            encoder_layers.append(nn.Linear(prev_dim, h_dim))
+            encoder_layers.append(nn.ReLU())
+            prev_dim = h_dim
+        encoder_layers.append(nn.Linear(prev_dim, latent_dim))
+        self.encoder = nn.Sequential(*encoder_layers)
+
+        # Build decoder (reverse hidden_dims)
+        decoder_layers = []
+        prev_dim = latent_dim
+        for h_dim in reversed(hidden_dims):
+            decoder_layers.append(nn.Linear(prev_dim, h_dim))
+            decoder_layers.append(nn.ReLU())
+            prev_dim = h_dim
+        decoder_layers.append(nn.Linear(prev_dim, input_dim))
+        self.decoder = nn.Sequential(*decoder_layers)
 
     # ----------------------------------------- #
     def encode(self, x):

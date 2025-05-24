@@ -14,3 +14,6 @@ hydra:
       # model.hidden_dims: "[512,256,128]"
     
       run_name: sweep_latent_dim
+
+
+#python autoencoders/train.py -m +sweeps=ae_grid
