@@ -9,7 +9,7 @@ model:
   input_dim: 36737
 
 # ───────── global flags ───────── #
-run_name: debug_run
+run_name: full_latent512_hd8192_4096_2048
 device: cpu
 seed: 42
 
@@ -28,18 +28,19 @@ trainer:
   model_name: ae
   batch_size: 32
   ckpt_dir: ${hydra:runtime.cwd}/autoencoders/checkpoints   # where files land
-  monitor: val/psnr                            # scalar name to watch
-  mode: max                                    # "min" for losses, "max" for scores
-  max_epochs: 5
+  monitor: val_recon_epoch                            # scalar name to watch
+  mode: min                                    # "min" for losses, "max" for scores
+  max_epochs: 150
 
 
 
 dataset:
-  root: ${hydra:runtime.cwd}/mlp_weights/Plane
+  root: ${hydra:runtime.cwd}/mlp_weights/Plane/3d_128_plane_multires_4_manifoldplus_slower_no_clipgrad
+  # root: ${hydra:runtime.cwd}/mlp_weights/Plane/five_samples
   model_dims: [256, 256]
   mlp_kwargs: {}
-  val_split: 0.10
-  test_split: 0.10
+  val_split: 0.15
+  test_split: 0.15
   num_workers: 2
 
   filter_bad: false   
