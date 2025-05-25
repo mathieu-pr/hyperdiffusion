@@ -112,15 +112,19 @@ class Trainer:
 
         self.model.eval()
         recon_losses = []
+        print(self.val_loader)
         for batch in self.val_loader:
+            print(batch)
             batch = [x.to(self.cfg.device) for x in batch]
             x = batch[0]
+            print(x)
             x_hat = self.model(x)
+            print(x_hat)
             recon_losses.append(torch.nn.functional.mse_loss(x_hat, x).item())
         self.model.train()
 
         return {
-            "val_recon_epoch": sum(recon_losses) / len(recon_losses),
+            "val_recon_epoch": sum(recon_losses) / len(recon_losses) if recon_losses else None,
         }
 
     # ------------------------------------------------------------------ #

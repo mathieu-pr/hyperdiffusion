@@ -13,20 +13,29 @@ python -m evaluate ckpt_path=<path_to_best.pt>
 • Logs metrics to wandb and writes eval.json next to the ckpt.
 """
 
+
 from __future__ import annotations
+
+import os
+os.environ["HYDRA_FULL_ERROR"] = "1"
 
 from pathlib import Path
 from types import SimpleNamespace
 
 import hydra
+from hydra.utils import instantiate
 import numpy as np
 import torch
 from omegaconf import DictConfig
 from torch.utils.data import Subset
 
-from data.weight_dataset import WeightDataset
 from engine.evaluator import Evaluator
 from utils.logger import init_wandb
+
+import sys
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from dataset import WeightDataset
 
 
 # -------------------------------------------------------------------- #
@@ -49,7 +58,7 @@ def _load_splits(full_ds, split_file: Path):
 
 
 # -------------------------------------------------------------------- #
-@hydra.main(config_path="configs", config_name="default")
+@hydra.main(version_base=None, config_path="configs", config_name="default")
 def main(cfg: DictConfig):
     # 1) initialise wandb for the evaluation run
     run = init_wandb(cfg, run_name=f"eval_{Path(cfg.ckpt_path).parent.name}")
@@ -64,19 +73,19 @@ def main(cfg: DictConfig):
     )
 
     # 3) restore the index split saved during training
-    split_file = Path(cfg.ckpt_path).parent / "splits.npz"
+    split_file = Path(cfg.split_path)
     train_set, val_set, test_set = _load_splits(full_ds, split_file)
 
     splits = SimpleNamespace(train=train_set, val=val_set, test=test_set)
 
     # 4) rebuild the model from YAML + load weights
-    model = build_model(cfg)
+    model = instantiate(cfg.model)
     state_dict = torch.load(cfg.ckpt_path, map_location="cpu")
     model.load_state_dict(state_dict)
 
     # 5) run evaluator (prefers .test, falls back to .val)
     evaluator = Evaluator(model, splits, cfg, run_dir=Path(cfg.ckpt_path).parent)
-    evaluator.run(split=cfg.eval.split)        # cfg.eval.split usually "test"
+    evaluator.run(split="test")        # cfg.eval.split usually "test"
 
     run.finish()
 
