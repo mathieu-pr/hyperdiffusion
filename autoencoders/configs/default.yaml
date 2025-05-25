@@ -11,7 +11,11 @@ model:
 # ───────── global flags ───────── #
 run_name: full_latent512_hd8192_4096_2048
 device: cpu
+run_name: debug_run
+device: cuda
 seed: 42
+ckpt_path: /home/astrohuma/hyperdiffusion/autoencoders/checkpoints/ae/2025-05-24_15-22-02_debug_run/last_epoch4.pt
+split_path: /home/astrohuma/hyperdiffusion/autoencoders/checkpoints/splits_20250524_seed42_totallen1_val0.0_test0.0.npz
 
 # ───────── logging ─────────── #
 logging:
@@ -31,6 +35,16 @@ trainer:
   monitor: val_recon_epoch                            # scalar name to watch
   mode: min                                    # "min" for losses, "max" for scores
   max_epochs: 150
+  monitor: val/psnr                            # scalar name to watch
+  mode: max                                    # "min" for losses, "max" for scores
+  max_epochs: 5
+  patience : 10
+
+# ───────── trainer ─────────── #
+eval:
+  model_name: ae
+  batch_size: 32
+
 
 
 
@@ -41,6 +55,8 @@ dataset:
   mlp_kwargs: {}
   val_split: 0.15
   test_split: 0.15
+  val_split: 0.0
+  test_split: 0.0
   num_workers: 2
 
   filter_bad: false   
