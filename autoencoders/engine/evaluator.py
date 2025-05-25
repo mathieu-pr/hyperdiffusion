@@ -10,7 +10,7 @@ from utils.logger import log_metrics
 class Evaluator:
     def __init__(self, model, datamodule, cfg, run_dir: Path):
         self.model = model.eval().to(cfg.device)
-        self.loader = DataLoader(datamodule.test, batch_size=cfg.eval.batch_size)
+        self.loader = DataLoader(datamodule.train, batch_size=cfg.eval.batch_size)  # change datamodule.train -> datamodule.test
         self.cfg = cfg
         self.run_dir = run_dir
 
