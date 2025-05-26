@@ -218,7 +218,7 @@ class Trainer:
 
             for batch in pbar:
                 loss, logs = self._train_step(batch)
-                log_metrics(step=global_step, loss=loss.item(), **logs)
+                # log_metrics(step=global_step, loss=loss.item(), **logs)
                 pbar.set_postfix(loss=f"{loss.item():.4f}")
                 global_step += 1
                 train_loss_epoch_list.append(loss.item())
