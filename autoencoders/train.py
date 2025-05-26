@@ -85,7 +85,7 @@ def _build_splits(
     # create a descriptive split file name with date, seed, and split ratios
     date_str = datetime.now().strftime("%Y%m%d")
     split_file_with_info = split_file.parent / (
-        f"splits_{date_str}_seed{cfg.seed}_totallen{total_len}_val{cfg.dataset.val_split}_test{cfg.dataset.test_split}.npz"
+        f"seed{cfg.seed}_totallen{total_len}_val{cfg.dataset.val_split}_test{cfg.dataset.test_split}.npz"
     )
 
 
