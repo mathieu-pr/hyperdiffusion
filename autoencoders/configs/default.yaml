@@ -3,7 +3,6 @@ defaults:
   - _self_
 
 
-
 # ───────── model ───────── #
 model:
   input_dim: 36737
@@ -43,8 +42,7 @@ trainer:
   mode: min                                    # "min" for losses, "max" for scores
   max_epochs: 150
   #monitor: val/psnr                            # scalar name to watch
-  #mode: max                                    # "min" for losses, "max" for scores
-  #max_epochs: 5
+  mode: min                                    # "min" for losses, "max" for scores
   patience : 10
 
 # ───────── trainer ─────────── #
