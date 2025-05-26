@@ -55,7 +55,7 @@ class Evaluator:
         chamfer_list = []
         
         for i, batch in enumerate(self.loader):  
-            if i >= 2: # limit to 1 batch for debugging, remove condition for full evaluation
+            if i >= self.cfg.eval.max_batches_eval: 
                 break
             batch = [x.to(self.cfg.device) for x in batch]
             x_input = batch[0]

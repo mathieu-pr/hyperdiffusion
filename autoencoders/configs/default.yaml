@@ -47,6 +47,7 @@ trainer:
 eval:
   model_name_eval: ae
   batch_size: 32
+  max_batches_eval: 15
 
 # mlp_config from root #
 mlp_config:
