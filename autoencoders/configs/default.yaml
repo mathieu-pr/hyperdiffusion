@@ -13,8 +13,8 @@ run_name: full_latent512_hd8192_4096_2048
 #run_name: debug_run
 device: cuda
 seed: 42
-ckpt_path: /home/astrohuma/hyperdiffusion/autoencoders/checkpoints/ae/2025-05-26_07-50-55_full_latent512_hd8192_4096_2048/last_epoch75.pt
-split_path: /home/astrohuma/hyperdiffusion/autoencoders/checkpoints/splits_20250526_seed42_totallen4045_val0.15_test0.15.npz
+ckpt_path: ${hydra:runtime.cwd}/autoencoders/checkpoints/ae/2025-05-26_07-50-55_full_latent512_hd8192_4096_2048/last_epoch75.pt
+split_path: ${hydra:runtime.cwd}/autoencoders/checkpoints/splits_20250526_seed42_totallen4045_val0.15_test0.15.npz
 batch_size: 32
 timesteps: 500
 diff_config:
@@ -42,12 +42,13 @@ trainer:
   mode: min                                    # "min" for losses, "max" for scores
   max_epochs: 150
   #monitor: val/psnr                            # scalar name to watch
+  monitor: val_recon_epoch                            # scalar name to watch
   mode: min                                    # "min" for losses, "max" for scores
   patience : 10
 
 # ───────── trainer ─────────── #
 eval:
-  model_name: ae
+  model_name_eval: ae
   batch_size: 32
 
 
