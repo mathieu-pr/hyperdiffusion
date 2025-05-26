@@ -36,6 +36,12 @@ import sys
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from dataset import WeightDataset
+from hyperdiffusion import HyperDiffusion
+from hd_utils import Config
+import ldm.ldm.modules.diffusionmodules.openaimodel
+import wandb
+from transformer import Transformer
+from hd_utils import Config, get_mlp
 
 
 # -------------------------------------------------------------------- #
@@ -78,13 +84,57 @@ def main(cfg: DictConfig):
 
     splits = SimpleNamespace(train=train_set, val=val_set, test=test_set)
 
-    # 4) rebuild the model from YAML + load weights
-    model = instantiate(cfg.model)
+    # 4) rebuild the AE model from YAML + load weights
+    model_AE = instantiate(cfg.model)
     state_dict = torch.load(cfg.ckpt_path, map_location="cpu")
-    model.load_state_dict(state_dict)
+    model_AE.load_state_dict(state_dict)
+
+    # 5a) make a hyperdiffusion instance
+    Config.config = config = cfg
+    method = cfg.train_plane.method
+    mlp_kwargs = None
+
+    # In HyperDiffusion, we need to know the specifications of MLPs that are used for overfitting
+    if "hyper" in method:
+        mlp_kwargs = Config.config.train_plane["mlp_config"]["params"]
+
+    # Initialize Transformer for HyperDiffusion
+    if "hyper" in method:
+        mlp = get_mlp(mlp_kwargs)
+        state_dict = mlp.state_dict()
+        layers = []
+        layer_names = []
+        for l in state_dict:
+            shape = state_dict[l].shape
+            layers.append(np.prod(shape))
+            layer_names.append(l)
+        model = Transformer(
+            layers, layer_names, **Config.config.train_plane["transformer_config"]["params"]
+        ).cuda()
+    # Initialize UNet for Voxel baseline
+    else:
+        model = ldm.ldm.modules.diffusionmodules.openaimodel.UNetModel(
+            **Config.config.train_plane["unet_config"]["params"]
+        ).float()
+
+    # Infer image_shape from first sample (assuming dataset returns tensors)
+    first_sample = train_set[0][0] if train_set is not None else val_set[0][0]
+    image_shape = (cfg.eval.batch_size, ) + tuple(first_sample.shape)  # e.g. (B, C)
+
+    # Create HyperDiffusion instance
+    hyperdiffusion_instance = HyperDiffusion(
+        model=model,
+        train_dt=train_set,
+        val_dt=val_set,
+        test_dt=test_set,
+        mlp_kwargs=mlp_kwargs,
+        image_shape=image_shape,
+        method="hyper_3d",
+        cfg=cfg
+    )
 
     # 5) run evaluator (prefers .test, falls back to .val)
-    evaluator = Evaluator(model, splits, cfg, run_dir=Path(cfg.ckpt_path).parent)
+    evaluator = Evaluator(model_AE, splits, cfg, run_dir=Path(cfg.ckpt_path).parent, hyperdiffusion_obj=hyperdiffusion_instance) #### model is AE model
     evaluator.run(split="test")        # cfg.eval.split usually "test"
 
     run.finish()
