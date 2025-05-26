@@ -19,7 +19,8 @@ from siren import sdf_meshing, utils
 
 
 class SDFDecoder(torch.nn.Module):
-    def __init__(self, model_type, checkpoint_path, mode, cfg):
+    def __init__(self, model_type, checkpoint_path, mode, cfg, device="cuda"):
+
         super().__init__()
         # Define the model.
         if model_type == "mlp_3d":
@@ -30,7 +31,7 @@ class SDFDecoder(torch.nn.Module):
 
         if checkpoint_path is not None:
             self.model.load_state_dict(torch.load(checkpoint_path))
-        self.model.cuda()
+        self.model.to(device=device)
 
     def forward(self, coords):
         model_in = {"coords": coords}
@@ -38,6 +39,7 @@ class SDFDecoder(torch.nn.Module):
 
 
 def main():
+    print("\nMain called from test_sdf.py\n")
     import configargparse
 
     p = configargparse.ArgumentParser()

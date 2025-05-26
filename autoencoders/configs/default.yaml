@@ -15,7 +15,7 @@ seed: 42
 # ckpt_path: ${hydra:runtime.cwd}/autoencoders/checkpoints/ae/2025-05-26_07-50-55_full_latent512_hd8192_4096_2048/last_epoch75.pt
 ckpt_path: ${hydra:runtime.cwd}/autoencoders/checkpoints/ae/2025-05-24_20-48-18_full_ld16_hd128_64/best_model_run_vl0_3028.pt
 split_path: ${hydra:runtime.cwd}/autoencoders/checkpoints/splits_seed42_totallen4045_val0.15_test0.15.npz
-batch_size: 32
+batch_size: 4
 timesteps: 500
 diff_config:
   params:

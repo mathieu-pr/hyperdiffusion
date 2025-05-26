@@ -38,6 +38,11 @@ class HyperDiffusion(pl.LightningModule):
         )  # it shouldn't be more than 36 limited by batch_size
         fake_data = torch.randn(*image_shape)
 
+        self.cfg_device = cfg.device
+
+        print(f"\nhyper diffusion config {cfg}\n")
+
+
         encoded_outs = fake_data
         print("encoded_outs.shape", encoded_outs.shape)
         timesteps = Config.config["timesteps"]
@@ -57,7 +62,7 @@ class HyperDiffusion(pl.LightningModule):
         t = (
             torch.randint(0, high=self.diff.num_timesteps, size=(images.shape[0],))
             .long()
-            .to(self.device)
+            .to(self.cfg_device)
         )
         images = images * self.cfg.normalization_factor
         x_t, e = self.diff.q_sample(images, t)
@@ -104,6 +109,7 @@ class HyperDiffusion(pl.LightningModule):
                 None,
                 "nerf" if self.mlp_kwargs.model_type == "nerf" else "mlp",
                 self.mlp_kwargs,
+                device = self.cfg_device
             )
             sdf_decoder.model = mlp.cuda()
             if not self.mlp_kwargs.move:
@@ -112,6 +118,7 @@ class HyperDiffusion(pl.LightningModule):
                     "meshes/first_mesh",
                     N=128,
                     level=0.5 if self.mlp_kwargs.output_type == "occ" else 0,
+                    device=self.cfg_device,
                 )
 
             print("Input images shape:", input_data.shape)
@@ -156,7 +163,7 @@ class HyperDiffusion(pl.LightningModule):
         t = (
             torch.randint(0, high=self.diff.num_timesteps, size=(input_data.shape[0],))
             .long()
-            .to(self.device)
+            .to(self.cfg_device)
         )
 
         # Execute a diffusion forward pass
@@ -304,8 +311,10 @@ class HyperDiffusion(pl.LightningModule):
                 None,
                 "nerf" if self.mlp_kwargs.model_type == "nerf" else "mlp",
                 self.mlp_kwargs,
+                device=self.cfg_device,
             )
-            sdf_decoder.model = mlp.cuda().eval()
+            sdf_decoder.model = mlp.to(device=self.device)
+            sdf_decoder.model.eval()
             with torch.no_grad():
                 effective_file_name = (
                     f"{folder_name}/mesh_epoch_{self.current_epoch}_{i}_{info}"
@@ -322,6 +331,7 @@ class HyperDiffusion(pl.LightningModule):
                             if self.mlp_kwargs.output_type in ["occ", "logits"]
                             else 0,
                             time_val=i,
+                            device=self.cfg_device
                         )  # 0.9
                         if (
                             "occ" in self.mlp_kwargs.output_type
@@ -341,6 +351,7 @@ class HyperDiffusion(pl.LightningModule):
                         level=level
                         if self.mlp_kwargs.output_type in ["occ", "logits"]
                         else 0,
+                        device=self.cfg_device,
                     )
                     if (
                         "occ" in self.mlp_kwargs.output_type

@@ -54,7 +54,9 @@ class Evaluator:
         mse_list = []
         chamfer_list = []
         
-        for batch in self.loader:
+        for i, batch in enumerate(self.loader):  
+            if i >= 2: # limit to 1 batch for debugging, remove condition for full evaluation
+                break
             batch = [x.to(self.cfg.device) for x in batch]
             x_input = batch[0]
             x_output = self.model(x_input)
@@ -71,24 +73,24 @@ class Evaluator:
                 meshes_reconstructed, _ = self.hyperdiffusion_obj.generate_meshes(x_output, folder_name=None, res=64)
 
                 # 2. Get ground truth meshes for this batch
-                # Assuming batch[1] contains ground truth meshes or points
-                # You must replace this part with your actual ground truth loading logic
-                gt_meshes, _ = self.hyperdiffusion_obj.generate_meshes(x_input, folder_name=None, res=64)  # or wherever your ground truth meshes are
+                gt_meshes, _ = self.hyperdiffusion_obj.generate_meshes(x_input, folder_name=None, res=64)
 
-                print("i'm computing chamfer distance")
                 # 3. Compute chamfer distance batch-wise
                 for rec_mesh, gt_mesh in zip(meshes_reconstructed, gt_meshes):
                     # Sample points from meshes (point clouds)
                     rec_points = torch.tensor(rec_mesh.sample(2048)).to(self.cfg.device)
-                    if isinstance(gt_mesh, trimesh.Trimesh):
-                        gt_points = torch.tensor(gt_mesh.sample(2048)).to(self.cfg.device)
-                    else:
-                        # If gt_mesh already point cloud tensor
-                        gt_points = gt_mesh.to(self.cfg.device)
+                    gt_points = torch.tensor(gt_mesh.sample(2048)).to(self.cfg.device)
 
                     # Compute chamfer distance
                     chamfer_val, _ = self.chamfer_distance(rec_points.unsqueeze(0), gt_points.unsqueeze(0))
-                    chamfer_list.append(chamfer_val.item())
+                    batch_chamfer.append(chamfer_val.item())
+
+                # Store mean chamfer for this batch
+                if batch_chamfer:
+                    chamfer_list.append(torch.tensor(batch_chamfer).mean())
+                    print(f"Batch {i} Chamfer Distance: {chamfer_list[-1].item()} - (batch size: {len(batch_chamfer)})")
+
+
             '''for i in range(x_output.shape[0]):
                 pred_weights = x_output[i].unsqueeze(0)
                 gt_weights = x_input[i].unsqueeze(0)
@@ -122,6 +124,12 @@ class Evaluator:
         mean_mse = torch.cat(mse_list).mean().item()
         mean_chamfer = sum(chamfer_list) / len(chamfer_list) if chamfer_list else None
         # mean_chamfer = torch.cat(chamfer_list).mean().item() if chamfer_list else float('nan')
+
+        # Convert mean_chamfer to float if it's a tensor
+        if isinstance(mean_chamfer, torch.Tensor):
+            mean_chamfer = mean_chamfer.item()
+
+        print(f"mean_mse: {mean_mse}, mean_chamfer: {mean_chamfer}")
 
         # log once to wandb (step=None writes to X-axis “undefined”)
         # log_metrics(psnr_test=mean_psnr)

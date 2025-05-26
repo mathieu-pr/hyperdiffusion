@@ -21,6 +21,7 @@ def create_mesh_v2(
     offset=None,
     scale=None,
     vis_transform=None,
+    device="cuda"
 ):
     start = time.time()
     ply_filename = filename
@@ -72,10 +73,11 @@ def create_mesh_v2(
     )
 
     while head < num_samples:
-        sample_subset = samples[head : min(head + max_batch, num_samples), 0:3].cuda()
+        # sample_subset = samples[head : min(head + max_batch, num_samples), 0:3].cuda()
+        sample_subset = samples[head : min(head + max_batch, num_samples), 0:3].to(device)
 
         samples[head : min(head + max_batch, num_samples), 3] = (
-            decoder(sample_subset).squeeze().detach().cpu()  # .squeeze(1)
+            decoder(sample_subset).squeeze().detach().to(device)  # .squeeze(1)
         )
         head += max_batch
 
@@ -93,7 +95,7 @@ def create_mesh_v2(
     end = time.time()
     print("sampling takes: %f" % (end - start))
 
-    sdf_tensor = sdf_values.detach().cpu().view(N, N, N) / voxel_size
+    sdf_tensor = sdf_values.detach().to(device).view(N, N, N) / voxel_size
     print(
         "sdf_tensor",
         sdf_tensor.shape,
@@ -147,6 +149,7 @@ def create_mesh(
     scale=None,
     level=0,
     time_val=-1,
+    device="cuda"
 ):
     start = time.time()
     ply_filename = filename
@@ -181,16 +184,16 @@ def create_mesh(
 
     while head < num_samples:
         # print(head)
-        sample_subset = samples[head : min(head + max_batch, num_samples), 0:3].cuda()
+        sample_subset = samples[head : min(head + max_batch, num_samples), 0:3].to(device)
         if time_val >= 0:
             sample_subset = torch.hstack(
                 (
                     sample_subset,
-                    torch.ones((sample_subset.shape[0], 1)).cuda() * time_val,
+                    torch.ones((sample_subset.shape[0], 1)).to(device) * time_val,
                 )
             )
         samples[head : min(head + max_batch, num_samples), 3] = (
-            decoder(sample_subset).squeeze().detach().cpu()  # .squeeze(1)
+            decoder(sample_subset).squeeze().detach().to(device)  # .squeeze(1)
         )
         head += max_batch
 
@@ -200,7 +203,7 @@ def create_mesh(
     # print("sampling takes: %f" % (end - start))
 
     return convert_sdf_samples_to_ply(
-        sdf_values.data.cpu(),
+        sdf_values.data.to(device),
         voxel_origin,
         voxel_size,
         None if ply_filename is None else ply_filename + ".ply",
@@ -243,7 +246,7 @@ def convert_sdf_samples_to_ply(
         np.zeros(0),
     )
     try:
-        verts, faces, normals, values = skimage.measure.marching_cubes_lewiner(
+        verts, faces, normals, values = skimage.measure.marching_cubes(
             numpy_3d_sdf_tensor, level=level, spacing=[voxel_size] * 3
         )
     except Exception as e:

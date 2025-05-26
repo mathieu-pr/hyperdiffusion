@@ -110,7 +110,7 @@ def main(cfg: DictConfig):
             layer_names.append(l)
         model = Transformer(
             layers, layer_names, **Config.config.train_plane["transformer_config"]["params"]
-        ).cuda()
+        ).to(cfg.device).float()
     # Initialize UNet for Voxel baseline
     else:
         model = ldm.ldm.modules.diffusionmodules.openaimodel.UNetModel(
