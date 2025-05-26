@@ -38,19 +38,15 @@ trainer:
   model_name: ae
   batch_size: 32
   ckpt_dir: ${hydra:runtime.cwd}/autoencoders/checkpoints   # where files land
-  monitor: val_recon_epoch                            # scalar name to watch
   mode: min                                    # "min" for losses, "max" for scores
   max_epochs: 150
-  #monitor: val/psnr                            # scalar name to watch
   monitor: val_recon_epoch                            # scalar name to watch
-  mode: min                                    # "min" for losses, "max" for scores
   patience : 10
 
 # ───────── trainer ─────────── #
 eval:
   model_name_eval: ae
   batch_size: 32
-
 
 # mlp_config from root #
 mlp_config:
