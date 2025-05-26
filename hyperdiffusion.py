@@ -40,9 +40,6 @@ class HyperDiffusion(pl.LightningModule):
 
         self.cfg_device = cfg.device
 
-        print(f"\nhyper diffusion config {cfg}\n")
-
-
         encoded_outs = fake_data
         print("encoded_outs.shape", encoded_outs.shape)
         timesteps = Config.config["timesteps"]
