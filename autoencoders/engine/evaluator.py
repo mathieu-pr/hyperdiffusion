@@ -46,13 +46,15 @@ class Evaluator:
         min_y_to_x = dist.min(dim=1)[0]  # [B, M]
 
         chamfer = (min_x_to_y.mean(dim=1) + min_y_to_x.mean(dim=1)) / 2  # [B]
-        return chamfer.mean(), chamfer  # mean across batch, and per-batch scores
+        return chamfer, chamfer.mean()  # mean across batch, and per-batch scores
 
     @torch.no_grad()
     def run(self, split="test"):
         # psnrs = []
         mse_list = []
         chamfer_list = []
+        vis_dir = os.path.join(self.run_dir, "autoencoders/mesh_visualization")
+        os.makedirs(vis_dir, exist_ok=True)
         
         for i, batch in enumerate(self.loader):  
             if i >= self.cfg.eval.max_batches_eval: 
@@ -89,6 +91,34 @@ class Evaluator:
                 if batch_chamfer:
                     chamfer_list.append(torch.tensor(batch_chamfer).mean())
                     print(f"Batch {i} Chamfer Distance: {chamfer_list[-1].item()} - (batch size: {len(batch_chamfer)})")
+
+                    # ----- Visualization -----
+                    for j, (rec_mesh, gt_mesh) in enumerate(zip(meshes_reconstructed, gt_meshes)):
+                        # Validate reconstructed mesh
+                        try:
+                            if rec_mesh is None or len(rec_mesh.vertices) == 0 or len(rec_mesh.faces) == 0:
+                                print(f"Skipping empty reconstructed mesh for batch {i}, item {j}")
+                                continue
+
+                            if gt_mesh is None or len(gt_mesh.vertices) == 0 or len(gt_mesh.faces) == 0:
+                                print(f"Skipping empty GT mesh for batch {i}, item {j}")
+                                continue
+
+                            rec_mesh_path = os.path.join(vis_dir, f"batch{i}_item{j}_recon.ply")
+                            gt_mesh_path = os.path.join(vis_dir, f"batch{i}_item{j}_gt.ply")
+
+                            rec_mesh.export(rec_mesh_path)
+                            gt_mesh.export(gt_mesh_path)
+
+                            # Optional visualization
+                            scene = trimesh.Scene()
+                            rec_mesh.visual.face_colors = [255, 0, 0, 100]  # Red, semi-transparent
+                            gt_mesh.visual.face_colors = [0, 255, 0, 100]   # Green, semi-transparent
+                            scene.add_geometry(gt_mesh)
+                            scene.add_geometry(rec_mesh)
+                            scene.show()
+                        except Exception as e:
+                            print(f"Could not render mesh: {e}")
 
 
             '''for i in range(x_output.shape[0]):
