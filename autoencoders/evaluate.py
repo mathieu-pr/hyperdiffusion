@@ -86,7 +86,7 @@ def main(cfg: DictConfig):
 
     # 4) rebuild the AE model from YAML + load weights
     model_AE = instantiate(cfg.model)
-    state_dict = torch.load(cfg.ckpt_path, map_location="cuda")
+    state_dict = torch.load(cfg.ckpt_path, map_location=cfg.device)
     model_AE.load_state_dict(state_dict)
 
     # 5a) make a hyperdiffusion instance
