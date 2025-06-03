@@ -159,6 +159,9 @@ def main(cfg: DictConfig):
         mean = all_train_weights.mean(dim=0)
         std = all_train_weights.std(dim=0)
 
+        #replace NaN values in mean and std with 0 and 1 respectively
+        std = torch.where(torch.isnan(std), torch.ones_like(std), std)
+
         
         #prevent problem when std is very small in training set and not in validation/test sets
         std = std.clamp(min=threshold_std)

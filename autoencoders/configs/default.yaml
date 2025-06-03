@@ -72,7 +72,7 @@ dataset:
   root: ${hydra:runtime.cwd}/mlp_weights/ten_sample  # erased Plane
   model_dims: [256, 256]
   mlp_kwargs: {}
-  val_split: 0.5
+  val_split: 0.9
   test_split: 0
   #val_split: 0.0
   #test_split: 0.0
