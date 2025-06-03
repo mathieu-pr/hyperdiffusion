@@ -109,46 +109,101 @@ def _build_splits(
 
 
 
+
+
 # ---------------------------------------------------------------------- #
 @hydra.main(version_base=None, config_path="configs", config_name="default")
 def main(cfg: DictConfig):
-    # 1.  initialise wandb
+    # 1.  Initialise wandb
     run = init_wandb(cfg, run_name=cfg.run_name)
 
     print(f"\n\n{run.name} - {cfg.trainer.model_name}\n")
     print(f"cfg.model: {cfg.model}\n")
-
-
     print(f"\ncfg.dataset.root: {cfg.dataset.root}\n")
 
-    # 2.  build the full WeightDataset
+    # 2.  Build full dataset WITHOUT normalization (to compute mean/std)
     full_ds = WeightDataset(
         mlps_folder=cfg.dataset.root,
-        wandb_logger=None,  # trainer handles logging
+        wandb_logger=None,
         model_dims=cfg.dataset.model_dims,
         mlp_kwargs=cfg.dataset.mlp_kwargs,
         cfg=cfg.dataset,
+        normalization_stats_path=None  # disable normalization for now
     )
 
-    # 3.  split & (first time) save indices
+    # 3.  Split & save indices
     ckpt_dir = Path(cfg.trainer.ckpt_dir)
     ckpt_dir.mkdir(parents=True, exist_ok=True)
     split_file = ckpt_dir / "splits.npz"
 
     print(f"\nlen(full_ds): {len(full_ds)}")
-
     train_set, val_set, test_set = _build_splits(full_ds, cfg, split_file)
 
-    # 4.  wrap splits in a tiny "datamodule" the Trainer expects
+    # 4.  Compute normalization stats on training set only
+    threshold_std = 1e-5 
+
+    normalization_stats_path = Path(cfg.trainer.ckpt_dir) / f"normalization_stats_totallen{len(full_ds)}_val{cfg.dataset.val_split}_test{cfg.dataset.test_split}_thresholdSTD_{threshold_std}.pt"
+    print(f"\n\nnormalization_stats_path: {normalization_stats_path}\n")
+
+    if not normalization_stats_path.exists():
+        print("→ Computing normalization stats from training set only...")
+        all_train_weights = []
+        for idx in train_set.indices:
+            weights, *_ = full_ds[idx]  # full_ds is unnormalized
+            all_train_weights.append(weights)
+        all_train_weights = torch.stack(all_train_weights)
+
+        #print the number of samples used to compute normalization stats
+        print(f"→ Number of samples used for normalization stats: {len(all_train_weights)}")
+
+        mean = all_train_weights.mean(dim=0)
+        std = all_train_weights.std(dim=0)
+
+        
+        #prevent problem when std is very small in training set and not in validation/test sets
+        std = std.clamp(min=threshold_std)
+
+
+
+        torch.save({"mean": mean, "std": std}, normalization_stats_path)
+        print(f"→ Saved normalization stats to {normalization_stats_path}")
+    else:
+        print(f"→ Using existing normalization stats: {normalization_stats_path}")
+
+    #print normalization stats
+    normalization_stats = torch.load(normalization_stats_path)
+    print(f"\nNormalization stats: mean={normalization_stats['mean']}, std={normalization_stats['std']}\n")
+
+    #print the shape of the mean and std
+    print(f"mean shape: {normalization_stats['mean'].shape}, std shape: {normalization_stats['std'].shape}\n")
+
+
+
+    # 5.  Rebuild dataset WITH normalization
+    norm_ds = WeightDataset(
+        mlps_folder=cfg.dataset.root,
+        wandb_logger=None,
+        model_dims=cfg.dataset.model_dims,
+        mlp_kwargs=cfg.dataset.mlp_kwargs,
+        cfg=cfg.dataset,
+        normalization_stats_path=normalization_stats_path
+    )
+
+    # Redo the splits
+    train_set, val_set, test_set = _build_splits(norm_ds, cfg, split_file)
+    print(f"\n\ntrain_set: {len(train_set)}, val_set: {len(val_set) if val_set else 'None'}, test_set: {len(test_set) if test_set else 'None'}\n")
+
+    # 6. Wrap in datamodule
     datamodule = SimpleNamespace(train=train_set, val=val_set, test=test_set)
 
-    # 5.  instantiate the model from YAML (_target_ field)
+    # 7. Instantiate model
     model = instantiate(cfg.model)
 
-    # 6.  launch training
-    trainer = Trainer(model, datamodule, cfg, run_name=run.name)
+    # 8. Launch training
+    trainer = Trainer(model, datamodule, cfg, run_name=run.name, normalization_stats_path=normalization_stats_path)
     trainer.fit()
 
+    # 9. Finish wandb
     run.finish()
 
 

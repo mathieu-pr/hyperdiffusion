@@ -72,10 +72,10 @@ class Evaluator:
 
             if self.hyperdiffusion_obj is not None:
                 # 1. Generate reconstructed meshes from AE output weights
-                meshes_reconstructed, _ = self.hyperdiffusion_obj.generate_meshes(x_output, folder_name=None, res=64)
+                meshes_reconstructed, _ = self.hyperdiffusion_obj.generate_meshes(x_output, folder_name=None, res=256)
 
                 # 2. Get ground truth meshes for this batch
-                gt_meshes, _ = self.hyperdiffusion_obj.generate_meshes(x_input, folder_name=None, res=64)
+                gt_meshes, _ = self.hyperdiffusion_obj.generate_meshes(x_input, folder_name=None, res=256)
 
                 # 3. Compute chamfer distance batch-wise
                 for rec_mesh, gt_mesh in zip(meshes_reconstructed, gt_meshes):

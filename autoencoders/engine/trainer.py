@@ -26,7 +26,7 @@ class Trainer:
     """
 
     # ------------------------------------------------------------------ #
-    def __init__(self, model, splits, cfg, run_name: str):
+    def __init__(self, model, splits, cfg, run_name: str, normalization_stats_path=None):
         print("-Version-: periodic backup of the best model, early stopping save")
         self.cfg = cfg
         print(f"Device: {cfg.device}")
@@ -93,6 +93,16 @@ class Trainer:
 
         print(f"Patience for early stopping: {self.patience}, mode of comparison is: {self.mode}.\n")
 
+
+        # ---------------- Normalization stats ------------- #
+        if normalization_stats_path:
+            stats = torch.load(normalization_stats_path)
+            self.mean = stats["mean"].to(self.device)
+            self.std = stats["std"].to(self.device)
+        else:
+            self.mean = None
+            self.std = None
+
     # ------------------------------------------------------------------ #
     def _train_step(self, batch: List[torch.Tensor]) -> Tuple[torch.Tensor, Dict[str, Any]]:
         batch = [x.to(self.cfg.device) for x in batch]
@@ -112,16 +122,30 @@ class Trainer:
 
         self.model.eval()
         recon_losses = []
-        print(self.val_loader)
         for batch in self.val_loader:
-            print(batch)
+            # print(f"shape of batch: {[x.shape for x in batch]}")
+            # print(f"len(batch) = {len(batch)}")
             batch = [x.to(self.cfg.device) for x in batch]
+            # print(f"shape of batch after to(device): {[x.shape for x in batch]}")
+            # print(f"len(batch) after to(device) = {len(batch)}")
             x = batch[0]
-            print(x)
+            print("\n\nx:", x, "\n\n")
+            # print(f"shape of x: {x.shape}")
+            # print(f"len(x) = {len(x)}")
             x_hat = self.model(x)
-            print(x_hat)
+
+            #unnormalize
+            x_hat = x_hat * self.std + self.mean
+            x = x * self.std + self.mean
+
             recon_losses.append(torch.nn.functional.mse_loss(x_hat, x).item())
+            # print("val torch mse default:", torch.nn.functional.mse_loss(x_hat, x).item())
+            # print("val torch mse with reduction='mean':", torch.nn.functional.mse_loss(x_hat, x, reduction='mean').item())
+            # print("val torch mse with reduction='sum':", torch.nn.functional.mse_loss(x_hat, x, reduction='sum').item())
         self.model.train()
+        print(f"recon_losses: {recon_losses}")
+        print(f"len(recon_losses) = {len(recon_losses)}")
+        print(f"Validation recon loss: {sum(recon_losses) / len(recon_losses):.4f}\n\n")
 
         return {
             "val_recon_epoch": sum(recon_losses) / len(recon_losses) if recon_losses else None,
@@ -247,14 +271,34 @@ class Trainer:
             # ----------- full-train reconstruction ---------- #
             self.model.eval()
             train_recon_losses = []
+            print(f"\n\nFull train set: {len(self.train_loader)} batches")
+            print(f"self.train_loader: {self.train_loader}")
+            print(f"self.train_loader.dataset: {self.train_loader.dataset}")
             with torch.no_grad():
                 for train_batch in self.train_loader:
+                    # print(f"shape of train_batch: {[x.shape for x in train_batch]}")
+                    # print(f"len(train_batch) = {len(train_batch)}")
                     train_batch = [x.to(self.cfg.device) for x in train_batch]
                     x = train_batch[0]
                     x_hat = self.model(x)
+
+                    #unnormalize
+                    x_hat = x_hat * self.std + self.mean
+                    x = x * self.std + self.mean
+
+
+                    # # print(f"len(x) = {len(x)}")
+                    # print(f"len(x_hat) = {len(x_hat)}")
+                    # print("torch mse default:", torch.nn.functional.mse_loss(x_hat, x).item())
+                    # print("torch mse with reduction='mean':", torch.nn.functional.mse_loss(x_hat, x, reduction='mean').item())
+                    # print("torch mse with reduction='sum':", torch.nn.functional.mse_loss(x_hat, x, reduction='sum').item())
                     train_recon_losses.append(torch.nn.functional.mse_loss(x_hat, x).item())
             self.model.train()
+            print(f"train_recon_losses: {train_recon_losses}")
             train_loss_epoch = sum(train_recon_losses) / len(train_recon_losses)
+            print(f"Full train recon loss: {train_loss_epoch:.4f}\n")
+            print(f"len(train_recon_losses) = {len(train_recon_losses)}")
+            print("\n\n")
             log_metrics(step=global_step, train_loss_epoch=train_loss_epoch, epoch=epoch + 1)
 
 

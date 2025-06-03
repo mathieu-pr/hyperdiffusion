@@ -144,9 +144,13 @@ class VoxelDataset(Dataset):
         return len(self.mesh_files)
 
 
+
+
+
+
 class WeightDataset(Dataset):
     def __init__(
-        self, mlps_folder, wandb_logger, model_dims, mlp_kwargs, cfg, object_names=None
+        self, mlps_folder, wandb_logger, model_dims, mlp_kwargs, cfg, object_names=None, normalization_stats_path=None
     ):
         self.mlps_folder = mlps_folder
         self.condition = cfg.transformer_config.params.condition
@@ -171,6 +175,19 @@ class WeightDataset(Dataset):
         self.logger = wandb_logger
         self.model_dims = model_dims
         self.mlp_kwargs = mlp_kwargs
+
+
+        self.normalization_stats_path = normalization_stats_path
+        if self.normalization_stats_path is not None:
+            stats = torch.load(self.normalization_stats_path)
+            self.mean = stats["mean"]
+            self.std = stats["std"]
+        else:
+            self.mean = None
+            self.std = None
+
+
+
         if cfg.augment in ["permute", "permute_same", "sort_permute"]:
             self.example_mlp = get_mlp(mlp_kwargs)
         self.cfg = cfg
@@ -191,24 +208,34 @@ class WeightDataset(Dataset):
         prev_weights = weights.clone()
 
         # Some augmentation methods are available althougwe don't use them in the main paper
-        if self.cfg.augment == "permute":
+        if self.cfg.augment == "permute" and False:
             weights = random_permute_flat(
                 [weights], self.example_mlp, None, random_permute_mlp
             )[0]
-        if self.cfg.augment == "sort_permute":
+        if self.cfg.augment == "sort_permute" and False:
             example_mlp = generate_mlp_from_weights(weights, self.mlp_kwargs)
             weights = random_permute_flat(
                 [weights], example_mlp, None, sorted_permute_mlp
             )[0]
-        if self.cfg.augment == "permute_same":
+        if self.cfg.augment == "permute_same" and False:
             weights = random_permute_flat(
                 [weights],
                 self.example_mlp,
                 int(np.random.random() * self.cfg.augment_amount),
                 random_permute_mlp,
             )[0]
-        if self.cfg.jitter_augment:
+        if self.cfg.jitter_augment and False:
             weights += np.random.uniform(0, 1e-3, size=weights.shape)
+
+        # Apply transform or normalization
+        apply_normalization = True
+        if apply_normalization:
+            if self.mean is None or self.std is None:
+                print("\n\n!!!!!!!!Warning: No normalization stats found !!!\n") 
+            else:
+                EPS = 1e-6
+                weights = (weights - self.mean) / (self.std + EPS)
+
 
         if self.transform:
             weights = self.transform(weights)
@@ -252,7 +279,7 @@ class WeightDataset(Dataset):
             )  # Prev: 0.3
             weights = torch.lerp(weights, other_weights, lerp_alpha)
 
-        return weights.float(), weights_prev.float(), weights_prev.float()
+        return weights.float(), weights_prev.float()
 
     def __len__(self):
         return len(self.mlp_files)
