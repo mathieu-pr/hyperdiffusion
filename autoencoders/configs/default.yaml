@@ -9,7 +9,8 @@ model:
 
 # ───────── global flags ───────── #
 # run_name: 2025-05-24_20-48-18_full_ld16_hd128_64/best_model_run_vl0_3028
-run_name: 2025-05-24_20-48-18_full_ld16_hd128_64/sanity_train1_val9
+# run_name: 2025-05-24_20-48-18_full_ld16_hd128_64/sanity_train1_val9
+run_name: full_ld16_hd128_64_normalized
 #device: cuda
 device: cpu
 seed: 42
@@ -18,7 +19,6 @@ seed: 42
 # ckpt_path: ${hydra:runtime.cwd}/autoencoders/checkpoints/ae/2025-05-24_20-48-18_full_ld16_hd128_64/best_model_run_vl0_3028.pt   #comment this line instead of removing it
 ckpt_path: ${hydra:runtime.cwd}/autoencoders/checkpoints/ae/2025-05-24_20-48-18_full_ld16_hd128_64_copy/best_model_run_vl0_3028.pt   #comment this line instead of removing it
 split_path: ${hydra:runtime.cwd}/autoencoders/checkpoints/splits_seed42_totallen4045_val0.15_test0.15.npz
-batch_size: 4
 timesteps: 500
 diff_config:
   params:
@@ -68,12 +68,12 @@ mlp_config:
     move: False
 
 dataset:
-  # root: ${hydra:runtime.cwd}/mlp_weights/3d_128_plane_multires_4_manifoldplus_slower_no_clipgrad  # erased Plane
-  root: ${hydra:runtime.cwd}/mlp_weights/ten_sample  # erased Plane
+  root: ${hydra:runtime.cwd}/mlp_weights/3d_128_plane_multires_4_manifoldplus_slower_no_clipgrad  # erased Plane
+  # root: ${hydra:runtime.cwd}/mlp_weights/ten_sample  # erased Plane
   model_dims: [256, 256]
   mlp_kwargs: {}
-  val_split: 0.9
-  test_split: 0
+  val_split: 0.15
+  test_split: 0.15
   #val_split: 0.0
   #test_split: 0.0
   num_workers: 2

@@ -150,7 +150,7 @@ class VoxelDataset(Dataset):
 
 class WeightDataset(Dataset):
     def __init__(
-        self, mlps_folder, wandb_logger, model_dims, mlp_kwargs, cfg, object_names=None, normalization_stats_path=None
+        self, mlps_folder, wandb_logger, model_dims, mlp_kwargs, cfg, object_names=None, should_normalize=True, normalization_stats_path=None
     ):
         self.mlps_folder = mlps_folder
         self.condition = cfg.transformer_config.params.condition
@@ -175,7 +175,7 @@ class WeightDataset(Dataset):
         self.logger = wandb_logger
         self.model_dims = model_dims
         self.mlp_kwargs = mlp_kwargs
-
+        self.should_normalize = should_normalize
 
         self.normalization_stats_path = normalization_stats_path
         if self.normalization_stats_path is not None:
@@ -228,10 +228,10 @@ class WeightDataset(Dataset):
             weights += np.random.uniform(0, 1e-3, size=weights.shape)
 
         # Apply transform or normalization
-        apply_normalization = True
-        if apply_normalization:
+        if self.should_normalize:
             if self.mean is None or self.std is None:
-                print("\n\n!!!!!!!!Warning: No normalization stats found !!!\n") 
+                print("\n\n!!!!!!!!Warning: No normalization stats found !!!") 
+                print(f"path is {self.normalization_stats_path}\n")
             else:
                 EPS = 1e-6
                 weights = (weights - self.mean) / (self.std + EPS)

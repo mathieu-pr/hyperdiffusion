@@ -163,11 +163,8 @@ def main(cfg: DictConfig):
         #replace NaN values in mean and std with 0 and 1 respectively
         std = torch.where(torch.isnan(std), torch.ones_like(std), std)
 
-        
         #prevent problem when std is very small in training set and not in validation/test sets
         std = std.clamp(min=threshold_std)
-
-
 
         torch.save({"mean": mean, "std": std}, normalization_stats_path)
         print(f"→ Saved normalization stats to {normalization_stats_path}")
@@ -194,9 +191,21 @@ def main(cfg: DictConfig):
         normalization_stats_path=normalization_stats_path
     )
 
+
+   
+
     # Redo the splits
     train_set, val_set, test_set = _build_splits(norm_ds, cfg, split_file)
     print(f"\n\ntrain_set: {len(train_set)}, val_set: {len(val_set) if val_set else 'None'}, test_set: {len(test_set) if test_set else 'None'}\n")
+
+
+    ######## Sanity check #######
+
+    #Number of training samples is set to 1 for sanity check
+    number_training_samples = 1
+    train_set = Subset(train_set, range(number_training_samples))
+    #or train_set = train_set[:number_training_samples]
+    print(f"Using {number_training_samples} training samples for sanity check\n")
 
     # 6. Wrap in datamodule
     datamodule = SimpleNamespace(train=train_set, val=val_set, test=test_set)
