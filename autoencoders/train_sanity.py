@@ -38,6 +38,7 @@ import numpy as np
 import torch
 from omegaconf import DictConfig
 from torch.utils.data import DataLoader, Subset, random_split
+import yaml
 
 from engine.trainer import Trainer
 from utils.logger import init_wandb
@@ -107,118 +108,147 @@ def _build_splits(
     )
     return train_set, val_set, test_set
 
+def read_and_modify_one_block_of_yaml_data(
+        filepath_origin: str,
+        filepath_destination: str, 
+        key: str, 
+        value: any
+        ):
+    with open(f'{filepath_origin}', 'r') as f:
+        data = yaml.safe_load(f)
+        if key == 'normalization_path':
+            data[f'{key}'] = data[f'{key}'] + '' + f'{value}'
+        else :
+            data[f'{key}'] = f'{value}'
+    with open(f'{filepath_destination}', 'w') as file:
+        yaml.dump(data,file,sort_keys=False)
 
-
+def copy_yaml_literal(source_path: str, destination_path: str):
+    with open(source_path, 'r') as src_file:
+        content = src_file.read()
+    with open(destination_path, 'w') as dest_file:
+        dest_file.write(content)
 
 
 # ---------------------------------------------------------------------- #
 @hydra.main(version_base=None, config_path="configs", config_name="default")
 def main(cfg: DictConfig):
-    # 1.  Initialise wandb
-    run = init_wandb(cfg, run_name=cfg.run_name)
+    numbers_training_samples = [1, 2, 4, 10, 100]
+    for number_training_samples in numbers_training_samples :
+        # 1.  Initialise wandb
+        run_name = cfg.run_name + '_sanity_check_' + f'{number_training_samples}'
+        run = init_wandb(cfg, run_name=run_name)
 
-    print(f"\n\n{run.name} - {cfg.trainer.model_name}\n")
-    print(f"cfg.model: {cfg.model}\n")
-    print(f"\ncfg.dataset.root: {cfg.dataset.root}\n")
+        print(f"\n\n{run.name} - {cfg.trainer.model_name}\n")
+        print(f"cfg.model: {cfg.model}\n")
+        print(f"\ncfg.dataset.root: {cfg.dataset.root}\n")
 
-    # 2.  Build full dataset WITHOUT normalization (to compute mean/std)
-    full_ds = WeightDataset(
-        mlps_folder=cfg.dataset.root,
-        wandb_logger=None,
-        model_dims=cfg.dataset.model_dims,
-        mlp_kwargs=cfg.dataset.mlp_kwargs,
-        cfg=cfg.dataset,
-        should_normalize=False,  # disable normalization for now
-        normalization_stats_path=None  # disable normalization for now
-    )
+        # 2.  Build full dataset WITHOUT normalization (to compute mean/std)
+        full_ds = WeightDataset(
+            mlps_folder=cfg.dataset.root,
+            wandb_logger=None,
+            model_dims=cfg.dataset.model_dims,
+            mlp_kwargs=cfg.dataset.mlp_kwargs,
+            cfg=cfg.dataset,
+            should_normalize=False,  # disable normalization for now
+            normalization_stats_path=None  # disable normalization for now
+        )
 
-    # 3.  Split & save indices
-    ckpt_dir = Path(cfg.trainer.ckpt_dir)
-    ckpt_dir.mkdir(parents=True, exist_ok=True)
-    split_file = ckpt_dir / "splits.npz"
+        # 3.  Split & save indices
+        ckpt_dir = Path(cfg.trainer.ckpt_dir)
+        ckpt_dir.mkdir(parents=True, exist_ok=True)
+        
+        split_file = ckpt_dir / "splits.npz"
 
-    print(f"\nlen(full_ds): {len(full_ds)}")
-    train_set, val_set, test_set = _build_splits(full_ds, cfg, split_file)
+        print(f"\nlen(full_ds): {len(full_ds)}")
+        train_set, val_set, test_set = _build_splits(full_ds, cfg, split_file)
 
-    # 4.  Compute normalization stats on training set only
-    threshold_std = 1e-5 
+        # 4.  Compute normalization stats on training set only
+        threshold_std = 1e-5 
 
-    normalization_stats_path = Path(cfg.trainer.ckpt_dir) / f"normalization_stats_totallen{len(full_ds)}_val{cfg.dataset.val_split}_test{cfg.dataset.test_split}_thresholdSTD_{threshold_std}.pt"
-    print(f"\n\nnormalization_stats_path: {normalization_stats_path}\n")
+        normalization_stats_name = f"normalization_stats_totallen{len(full_ds)}_val{cfg.dataset.val_split}_test{cfg.dataset.test_split}_thresholdSTD_{threshold_std}.pt"
+        normalization_stats_path = Path(cfg.trainer.ckpt_dir) / normalization_stats_name
+        print(f"\n\nnormalization_stats_path: {normalization_stats_path}\n")
 
-    if not normalization_stats_path.exists():
-        print("→ Computing normalization stats from training set only...")
-        all_train_weights = []
-        for idx in train_set.indices:
-            weights, *_ = full_ds[idx]  # full_ds is unnormalized
-            all_train_weights.append(weights)
-        all_train_weights = torch.stack(all_train_weights)
+        if not normalization_stats_path.exists():
+            print("→ Computing normalization stats from training set only...")
+            all_train_weights = []
+            for idx in train_set.indices:
+                weights, *_ = full_ds[idx]  # full_ds is unnormalized
+                all_train_weights.append(weights)
+            all_train_weights = torch.stack(all_train_weights)
 
-        #print the number of samples used to compute normalization stats
-        print(f"→ Number of samples used for normalization stats: {len(all_train_weights)}")
+            #print the number of samples used to compute normalization stats
+            print(f"→ Number of samples used for normalization stats: {len(all_train_weights)}")
 
-        mean = all_train_weights.mean(dim=0)
-        std = all_train_weights.std(dim=0)
+            mean = all_train_weights.mean(dim=0)
+            std = all_train_weights.std(dim=0)
 
-        #replace NaN values in mean and std with 0 and 1 respectively
-        std = torch.where(torch.isnan(std), torch.ones_like(std), std)
+            #replace NaN values in mean and std with 0 and 1 respectively
+            std = torch.where(torch.isnan(std), torch.ones_like(std), std)
 
-        #prevent problem when std is very small in training set and not in validation/test sets
-        std = std.clamp(min=threshold_std)
+            #prevent problem when std is very small in training set and not in validation/test sets
+            std = std.clamp(min=threshold_std)
 
-        torch.save({"mean": mean, "std": std}, normalization_stats_path)
-        print(f"→ Saved normalization stats to {normalization_stats_path}")
-    else:
-        print(f"→ Using existing normalization stats: {normalization_stats_path}")
+            torch.save({"mean": mean, "std": std}, normalization_stats_path)
+            print(f"→ Saved normalization stats to {normalization_stats_path}")
+        else:
+            print(f"→ Using existing normalization stats: {normalization_stats_path}")
 
-    #print normalization stats
-    normalization_stats = torch.load(normalization_stats_path)
-    print(f"\nNormalization stats: mean={normalization_stats['mean']}, std={normalization_stats['std']}\n")
+        #print normalization stats
+        normalization_stats = torch.load(normalization_stats_path)
+        print(f"\nNormalization stats: mean={normalization_stats['mean']}, std={normalization_stats['std']}\n")
 
-    #print the shape of the mean and std
-    print(f"mean shape: {normalization_stats['mean'].shape}, std shape: {normalization_stats['std'].shape}\n")
-
-
-
-    # 5.  Rebuild dataset WITH normalization
-    norm_ds = WeightDataset(
-        mlps_folder=cfg.dataset.root,
-        wandb_logger=None,
-        model_dims=cfg.dataset.model_dims,
-        mlp_kwargs=cfg.dataset.mlp_kwargs,
-        cfg=cfg.dataset,
-        should_normalize=True,  # enable normalization
-        normalization_stats_path=normalization_stats_path
-    )
+        #print the shape of the mean and std
+        print(f"mean shape: {normalization_stats['mean'].shape}, std shape: {normalization_stats['std'].shape}\n")
 
 
-   
 
-    # Redo the splits
-    train_set, val_set, test_set = _build_splits(norm_ds, cfg, split_file)
-    print(f"\n\ntrain_set: {len(train_set)}, val_set: {len(val_set) if val_set else 'None'}, test_set: {len(test_set) if test_set else 'None'}\n")
+        # 5.  Rebuild dataset WITH normalization
+        norm_ds = WeightDataset(
+            mlps_folder=cfg.dataset.root,
+            wandb_logger=None,
+            model_dims=cfg.dataset.model_dims,
+            mlp_kwargs=cfg.dataset.mlp_kwargs,
+            cfg=cfg.dataset,
+            should_normalize=True,  # enable normalization
+            normalization_stats_path=normalization_stats_path
+        )
 
 
-    ######## Sanity check #######
+    
 
-    #Number of training samples is set to 1 for sanity check
-    number_training_samples = 1
-    train_set = Subset(train_set, range(number_training_samples))
-    #or train_set = train_set[:number_training_samples]
-    print(f"Using {number_training_samples} training samples for sanity check\n")
+        # Redo the splits
+        train_set, val_set, test_set = _build_splits(norm_ds, cfg, split_file)
+        print(f"\n\ntrain_set: {len(train_set)}, val_set: {len(val_set) if val_set else 'None'}, test_set: {len(test_set) if test_set else 'None'}\n")
 
-    # 6. Wrap in datamodule
-    datamodule = SimpleNamespace(train=train_set, val=val_set, test=test_set)
 
-    # 7. Instantiate model
-    model = instantiate(cfg.model)
+        ######## Sanity check #######
 
-    # 8. Launch training
-    trainer = Trainer(model, datamodule, cfg, run_name=run.name, normalization_stats_path=normalization_stats_path)
-    trainer.fit()
+        #Number of training samples is set to 1 for sanity check
+        train_set = Subset(train_set, range(number_training_samples))
+        #or train_set = train_set[:number_training_samples]
+        print(f"Using {number_training_samples} training samples for sanity check\n")
 
-    # 9. Finish wandb
-    run.finish()
+        # 6. Wrap in datamodule
+        datamodule = SimpleNamespace(train=train_set, val=val_set, test=test_set)
+
+        # 7. Instantiate model
+        model = instantiate(cfg.model)
+
+        # 8. Launch training
+        trainer = Trainer(model, datamodule, cfg, run_name=run.name, normalization_stats_path=normalization_stats_path)
+        ckpt_folder_path = trainer.fit()
+
+        # 8b. Update default_eval.yaml, ckpt_name
+        default_eval_path = cfg.ckpt_path + ckpt_folder_path + '/default_eval.yaml'
+        copy_yaml_literal("./autoencoders/configs/default_eval.yaml", default_eval_path)
+        read_and_modify_one_block_of_yaml_data(default_eval_path, default_eval_path, 'normalization_path', normalization_stats_name)
+        read_and_modify_one_block_of_yaml_data(default_eval_path, default_eval_path, 'ckpt_path', cfg.ckpt_path + ckpt_folder_path)
+
+
+        # 9. Finish wandb
+        run.finish()
 
 
 if __name__ == "__main__":

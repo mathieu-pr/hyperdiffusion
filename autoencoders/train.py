@@ -38,6 +38,7 @@ import numpy as np
 import torch
 from omegaconf import DictConfig
 from torch.utils.data import DataLoader, Subset, random_split
+import yaml
 
 from engine.trainer import Trainer
 from utils.logger import init_wandb
@@ -108,7 +109,20 @@ def _build_splits(
     return train_set, val_set, test_set
 
 
-
+def read_and_modify_one_block_of_yaml_data(
+        filepath_origin: str,
+        filepath_destination: str, 
+        key: str, 
+        value: any
+        ):
+    with open(f'{filepath_origin}', 'r') as f:
+        data = yaml.safe_load(f)
+        if key == 'normalization_path':
+            data[f'{key}'] = data[f'{key}'] + '' + f'{value}'
+        else :
+            data[f'{key}'] = f'{value}'
+    with open(f'{filepath_destination}', 'w') as file:
+        yaml.dump(data,file,sort_keys=False)
 
 
 # ---------------------------------------------------------------------- #
@@ -143,7 +157,8 @@ def main(cfg: DictConfig):
     # 4.  Compute normalization stats on training set only
     threshold_std = 1e-5 
 
-    normalization_stats_path = Path(cfg.trainer.ckpt_dir) / f"normalization_stats_totallen{len(full_ds)}_val{cfg.dataset.val_split}_test{cfg.dataset.test_split}_thresholdSTD_{threshold_std}.pt"
+    normalization_stats_name = f"normalization_stats_totallen{len(full_ds)}_val{cfg.dataset.val_split}_test{cfg.dataset.test_split}_thresholdSTD_{threshold_std}.pt"
+    normalization_stats_path = Path(cfg.trainer.ckpt_dir) / normalization_stats_name
     print(f"\n\nnormalization_stats_path: {normalization_stats_path}\n")
 
     if not normalization_stats_path.exists():
@@ -181,6 +196,9 @@ def main(cfg: DictConfig):
     #print the shape of the mean and std
     print(f"mean shape: {normalization_stats['mean'].shape}, std shape: {normalization_stats['std'].shape}\n")
 
+    #update the normalization path in the yaml
+    read_and_modify_one_block_of_yaml_data('./autoencoders/configs/default.yaml', './autoencoders/configs/default_eval.yaml', 'normalization_path', normalization_stats_name)
+    
 
 
     # 5.  Rebuild dataset WITH normalization
@@ -204,9 +222,12 @@ def main(cfg: DictConfig):
     # 7. Instantiate model
     model = instantiate(cfg.model)
 
-    # 8. Launch training
+    # 8. Launch training + Save the best epoch path to default_eval.yaml
     trainer = Trainer(model, datamodule, cfg, run_name=run.name, normalization_stats_path=normalization_stats_path)
-    trainer.fit()
+    ckpt_folder_path = trainer.fit()
+
+    # 8b. Update default_eval.yaml, ckpt_name
+    read_and_modify_one_block_of_yaml_data('./autoencoders/configs/default_eval.yaml', './autoencoders/configs/default_eval.yaml', 'ckpt_path', cfg.ckpt_path + ckpt_folder_path)
 
     # 9. Finish wandb
     run.finish()

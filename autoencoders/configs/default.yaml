@@ -11,14 +11,15 @@ model:
 # run_name: 2025-05-24_20-48-18_full_ld16_hd128_64/best_model_run_vl0_3028
 # run_name: 2025-05-24_20-48-18_full_ld16_hd128_64/sanity_train1_val9
 run_name: full_ld16_hd128_64_normalized
-#device: cuda
-device: cpu
+device: cuda
+# device: cpu
 seed: 42
 # ckpt_path: ${hydra:runtime.cwd}/autoencoders/checkpoints/ae/2025-05-26_07-50-55_full_latent512_hd8192_4096_2048/last_epoch75.pt
 # ckpt_path: ${hydra:runtime.cwd}/autoencoders/checkpoints/ae/2025-05-31_11-14-22_2025-05-24_20-48-18_full_ld16_hd128_64/best_model_run_vl0_3028/best_model_run_vl0_3134.pt
 # ckpt_path: ${hydra:runtime.cwd}/autoencoders/checkpoints/ae/2025-05-24_20-48-18_full_ld16_hd128_64/best_model_run_vl0_3028.pt   #comment this line instead of removing it
-ckpt_path: ${hydra:runtime.cwd}/autoencoders/checkpoints/ae/2025-05-24_20-48-18_full_ld16_hd128_64_copy/best_model_run_vl0_3028.pt   #comment this line instead of removing it
+ckpt_path: ${hydra:runtime.cwd}/autoencoders/checkpoints/ae/   #comment this line instead of removing it
 split_path: ${hydra:runtime.cwd}/autoencoders/checkpoints/splits_seed42_totallen4045_val0.15_test0.15.npz
+normalization_path: ${hydra:runtime.cwd}/autoencoders/checkpoints/
 timesteps: 500
 diff_config:
   params:

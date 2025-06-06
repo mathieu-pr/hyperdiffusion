@@ -1,0 +1,121 @@
+defaults:
+- model: ae
+- _self_
+model:
+  input_dim: 36737
+run_name: full_ld16_hd128_64_normalized
+device: cuda
+seed: 42
+ckpt_path: ${hydra:runtime.cwd}/autoencoders/checkpoints/ae/2025-06-06_20-28-56_full_ld16_hd128_64_normalized_sanity_check_100
+split_path: ${hydra:runtime.cwd}/autoencoders/checkpoints/splits_seed42_totallen4045_val0.15_test0.15.npz
+normalization_path: ${hydra:runtime.cwd}/autoencoders/checkpoints/normalization_stats_totallen4045_val0.15_test0.15_thresholdSTD_1e-05.pt
+batch_size : 16
+timesteps: 500
+diff_config:
+  params:
+    model_mean_type: START_X
+    model_var_type: FIXED_LARGE
+    loss_type: MSE
+logging:
+  project: mlp_autoencoders
+  log_dir: ${hydra:runtime.cwd}/autoencoders/logs
+optimizer:
+  lr: 1e-3
+  wd: 1e-5
+trainer:
+  model_name: ae
+  batch_size: 16
+  ckpt_dir: ${hydra:runtime.cwd}/autoencoders/checkpoints
+  mode: min
+  max_epochs: 200
+  monitor: val_recon_epoch
+  patience: 100
+eval:
+  model_name_eval: ae
+  batch_size: 4
+  max_batches_eval: 1
+mlp_config:
+  params:
+    model_type: mlp_3d
+    out_size: 1
+    hidden_neurons:
+    - 128
+    - 128
+    - 128
+    output_type: occ
+    out_act: sigmoid
+    multires: 4
+    use_leaky_relu: false
+    move: false
+dataset:
+  root: ${hydra:runtime.cwd}/mlp_weights/3d_128_plane_multires_4_manifoldplus_slower_no_clipgrad
+  model_dims:
+  - 256
+  - 256
+  mlp_kwargs: {}
+  val_split: 0.15
+  test_split: 0.15
+  num_workers: 2
+  filter_bad: false
+  augment: none
+  jitter_augment: false
+  transformer_config:
+    params:
+      condition: false
+train_plane:
+  method: hyper_3d
+  calculate_metric_on_test: true
+  dedup: false
+  test_sample_mult: 1.1
+  filter_bad: true
+  filter_bad_path: ./data/plane_problematic_shapes.txt
+  disable_wandb: false
+  dataset_dir: ./data
+  dataset: 02691156
+  tensorboard_log_dir: .
+  augment: false
+  augment_amount: 0
+  jitter_augment: false
+  normalization_factor: 1
+  timesteps: 500
+  epochs: 6000
+  scheduler: true
+  scheduler_step: 200
+  best_model_save_path: null
+  mode: train
+  mlps_folder_train: ./mlp_weights/3d_128_plane_multires_4_manifoldplus_slower_no_clipgrad
+  model_resume_path: null
+  sampling: ddim
+  val_fid_calculation_period: 15
+  lr: 0.0002
+  batch_size: 32
+  accumulate_grad_batches: 1
+  val:
+    num_points: 2048
+    num_samples: 60
+  mlp_config:
+    params:
+      model_type: mlp_3d
+      out_size: 1
+      hidden_neurons:
+      - 128
+      - 128
+      - 128
+      output_type: occ
+      out_act: sigmoid
+      multires: 4
+      use_leaky_relu: false
+      move: false
+  diff_config:
+    params:
+      model_mean_type: START_X
+      model_var_type: FIXED_LARGE
+      loss_type: MSE
+  transformer_config:
+    params:
+      n_embd: 2880
+      n_layer: 12
+      n_head: 16
+      split_policy: layer_by_layer
+      use_global_residual: false
+      condition: 'no'

@@ -68,12 +68,16 @@ class Trainer:
 
         # ------------- Checkpoint bookkeeping ---------- #
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        self.ckpt_folder = f"{timestamp}_{run_name}"                    # ADDED THIS!
         self.ckpt_dir = Path(
             cfg.trainer.ckpt_dir,
             cfg.trainer.model_name,
-            f"{timestamp}_{run_name}",
+            self.ckpt_folder,
         )
         self.ckpt_dir.mkdir(parents=True, exist_ok=True)
+
+        # ------------ Update default_eval.yaml file -----#
+
 
         self.monitor = cfg.trainer.monitor          # e.g. "val_recon_epoch"
         self.mode = cfg.trainer.mode.lower()        # "min" or "max"
@@ -129,7 +133,7 @@ class Trainer:
             # print(f"shape of batch after to(device): {[x.shape for x in batch]}")
             # print(f"len(batch) after to(device) = {len(batch)}")
             x = batch[0]
-            print("\n\nx:", x, "\n\n")
+            ################################## print("\n\nx:", x, "\n\n") COMMENT THIS OUT
             # print(f"shape of x: {x.shape}")
             # print(f"len(x) = {len(x)}")
             x_hat = self.model(x)
@@ -225,20 +229,23 @@ class Trainer:
 
 
     # ------------------------------------------------------------------ #
-    def _save_best_on_early_stop(self) -> None:                        # NEW
+    def _save_best_on_early_stop(self) -> str:                        # NEW (UPDATED 6.4 >> return the best epoch name)
         """Write best weights to the final filename when early stopping kicks in."""
         if self.best_state_dict is None:
             print("Early stop, but no best_state_dict found – nothing saved.")
             return
         loss_str = f"{self.best_value:.4f}".replace(".", "_")
-        path = self.ckpt_dir / f"best_model_run_vl{loss_str}.pt"
+        best_ckpt_name = f"best_model_run_vl{loss_str}.pt"
+        path = self.ckpt_dir / best_ckpt_name
         torch.save(self.best_state_dict, path)
         print(f"Early-stopping: best model (vl={self.best_value:.4f}) saved to {path}")
+        return best_ckpt_name
 
 
     # ------------------------------------------------------------------ #
-    def fit(self) -> None:
+    def fit(self) -> str:
         global_step = 0
+        best_epoch_name = None
 
         for epoch in range(self.cfg.trainer.max_epochs):
             train_loss_epoch_list = []
@@ -261,7 +268,7 @@ class Trainer:
 
             # ---------------- early-stopping ---------------- #
             if self._should_stop_early():  
-                self._save_best_on_early_stop()         
+                best_epoch_name = self._save_best_on_early_stop()         
                 print(
                     f"Stopping early after epoch {epoch} – "
                     f"no improvement in {self.patience} epochs."
@@ -311,3 +318,6 @@ class Trainer:
         #     artifact = wandb.Artifact("final_model", type="model")
         #     artifact.add_file(str(final_ckpt))
         #     wandb.log_artifact(artifact)
+
+
+        return self.ckpt_folder

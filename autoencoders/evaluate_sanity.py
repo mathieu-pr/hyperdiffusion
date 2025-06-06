@@ -18,7 +18,6 @@ from __future__ import annotations
 
 import os
 os.environ["HYDRA_FULL_ERROR"] = "1"
-import glob
 
 from pathlib import Path
 from types import SimpleNamespace
@@ -43,6 +42,7 @@ import ldm.ldm.modules.diffusionmodules.openaimodel
 import wandb
 from transformer import Transformer
 from hd_utils import Config, get_mlp
+import glob
 
 
 # -------------------------------------------------------------------- #
@@ -81,10 +81,12 @@ def get_model_checkpoint(folder_path):
     # If neither exists
     return None
 
+
 # -------------------------------------------------------------------- #
 @hydra.main(version_base=None, config_path="configs", config_name="default_eval")
 def main(cfg: DictConfig):
     # 1) initialise wandb for the evaluation run
+    
     run = init_wandb(cfg, run_name=f"eval_{Path(cfg.ckpt_path).parent.name}")
 
     normalization_stats_path = Path(cfg.normalization_path)

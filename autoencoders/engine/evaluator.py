@@ -18,12 +18,21 @@ from hyperdiffusion import HyperDiffusion
 
 
 class Evaluator:
-    def __init__(self, model, datamodule, cfg, run_dir: Path, hyperdiffusion_obj=None):
+    def __init__(self, model, datamodule, cfg, run_dir: Path, hyperdiffusion_obj=None, normalization_stats_path=None):
         self.model = model.eval().to(cfg.device)
         self.loader = DataLoader(datamodule.test, batch_size=cfg.eval.batch_size)  # change datamodule.train -> datamodule.test
         self.cfg = cfg
+        self.device = cfg.device
         self.run_dir = run_dir
         self.hyperdiffusion_obj = hyperdiffusion_obj
+
+        if normalization_stats_path:
+            stats = torch.load(normalization_stats_path)
+            self.mean = stats["mean"].to(self.device)
+            self.std = stats["std"].to(self.device)
+        else :
+            self.mean = None
+            self.std = None
 
     def chamfer_distance(self, x: torch.Tensor, y: torch.Tensor):
         # Ensure x and y are [B, N, 3]
@@ -62,6 +71,12 @@ class Evaluator:
             batch = [x.to(self.cfg.device) for x in batch]
             x_input = batch[0]
             x_output = self.model(x_input)
+
+            # UNNORMALIZATION :
+            x_input = x_input * self.std + self.mean
+            x_output = x_output * self.std + self.mean
+            
+            # MSE LOSS :
             mse = F.mse_loss(x_output, x_input, reduction='none').mean(dim=[1, 2, 3] if x_input.ndim == 4 else [1])
             mse_list.append(mse)
             # x̂ = self.model(batch[0])
