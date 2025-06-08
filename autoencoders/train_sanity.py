@@ -163,6 +163,9 @@ def main(cfg: DictConfig):
         print(f"\nlen(full_ds): {len(full_ds)}")
         train_set, val_set, test_set = _build_splits(full_ds, cfg, split_file)
 
+        print(f"\nLearning rate: {cfg.optimizer.lr}")
+
+
         # 4.  Compute normalization stats on training set only
         threshold_std = 1e-5 
 

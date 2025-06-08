@@ -135,6 +135,8 @@ def main(cfg: DictConfig):
     print(f"cfg.model: {cfg.model}\n")
     print(f"\ncfg.dataset.root: {cfg.dataset.root}\n")
 
+    print(f"\nLearning rate: {cfg.optimizer.lr}")
+
     # 2.  Build full dataset WITHOUT normalization (to compute mean/std)
     full_ds = WeightDataset(
         mlps_folder=cfg.dataset.root,

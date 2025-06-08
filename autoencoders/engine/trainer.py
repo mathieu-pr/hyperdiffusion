@@ -301,11 +301,11 @@ class Trainer:
                     # print("torch mse with reduction='sum':", torch.nn.functional.mse_loss(x_hat, x, reduction='sum').item())
                     train_recon_losses.append(torch.nn.functional.mse_loss(x_hat, x).item())
             self.model.train()
-            print(f"train_recon_losses: {train_recon_losses}")
+            # print(f"train_recon_losses: {train_recon_losses}")
             train_loss_epoch = sum(train_recon_losses) / len(train_recon_losses)
-            print(f"Full train recon loss: {train_loss_epoch:.4f}\n")
-            print(f"len(train_recon_losses) = {len(train_recon_losses)}")
-            print("\n\n")
+            # print(f"Full train recon loss: {train_loss_epoch:.4f}\n")
+            # print(f"len(train_recon_losses) = {len(train_recon_losses)}")
+            # print("\n\n")
             log_metrics(step=global_step, train_loss_epoch=train_loss_epoch, epoch=epoch + 1)
 
 
