@@ -107,6 +107,7 @@ def main(cfg: DictConfig):
     split_file = Path(cfg.split_path)
     train_set, val_set, test_set = _load_splits(full_ds, split_file)
 
+    train_set = Subset(train_set, range(4))
     splits = SimpleNamespace(train=train_set, val=val_set, test=test_set)
 
     # 4) rebuild the AE model from YAML + load weights
@@ -161,11 +162,12 @@ def main(cfg: DictConfig):
     )
 
     # 5) run evaluator (prefers .test, falls back to .val)
-    evaluator = Evaluator(model_AE, splits, cfg, run_dir=Path(cfg.ckpt_path), hyperdiffusion_obj=hyperdiffusion_instance, normalization_stats_path=normalization_stats_path) #### model is AE model
-    evaluator.run(split="test")        # cfg.eval.split usually "test"
+    evaluator = Evaluator(model_AE, splits, cfg, run_dir=Path(cfg.ckpt_path), split="train", hyperdiffusion_obj=hyperdiffusion_instance, normalization_stats_path=normalization_stats_path) #### model is AE model
+    evaluator.run()        # cfg.eval.split usually "test"
 
     run.finish()
 
+# IN ORDER TO RUN, CHANGE THE CKPT_PATH AND THEN CHANGE THE SANITY SIZE
 
 if __name__ == "__main__":
     main()

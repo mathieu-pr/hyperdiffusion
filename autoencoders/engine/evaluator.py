@@ -18,9 +18,13 @@ from hyperdiffusion import HyperDiffusion
 
 
 class Evaluator:
-    def __init__(self, model, datamodule, cfg, run_dir: Path, hyperdiffusion_obj=None, normalization_stats_path=None):
+    def __init__(self, model, datamodule, cfg, run_dir: Path, split = "test", hyperdiffusion_obj=None, normalization_stats_path=None):
         self.model = model.eval().to(cfg.device)
-        self.loader = DataLoader(datamodule.test, batch_size=cfg.eval.batch_size)  # change datamodule.train -> datamodule.test
+        self.split = split
+        if split == "test" :
+            self.loader = DataLoader(datamodule.test, batch_size=cfg.eval.batch_size)  # change datamodule.train -> datamodule.test (TRAIN FOR SANITY)
+        elif split == "train":
+            self.loader = DataLoader(datamodule.train, batch_size=cfg.eval.batch_size)
         self.cfg = cfg
         self.device = cfg.device
         self.run_dir = run_dir
@@ -58,11 +62,14 @@ class Evaluator:
         return chamfer, chamfer.mean()  # mean across batch, and per-batch scores
 
     @torch.no_grad()
-    def run(self, split="test"):
+    def run(self):
         # psnrs = []
         mse_list = []
         chamfer_list = []
-        vis_dir = os.path.join(self.run_dir, "autoencoders/mesh_visualization")
+        if self.split == "test" :
+            vis_dir = os.path.join(self.run_dir, "autoencoders/mesh_visualization")
+        else :
+            vis_dir = os.path.join(self.run_dir, "autoencoders/mesh_visualization/train")
         os.makedirs(vis_dir, exist_ok=True)
         
         for i, batch in enumerate(self.loader):  
