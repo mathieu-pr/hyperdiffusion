@@ -147,9 +147,19 @@ class Trainer:
             # print("val torch mse with reduction='mean':", torch.nn.functional.mse_loss(x_hat, x, reduction='mean').item())
             # print("val torch mse with reduction='sum':", torch.nn.functional.mse_loss(x_hat, x, reduction='sum').item())
         self.model.train()
+        # print(f"recon_losses: {recon_losses}")
+        # print(f"len(recon_losses) = {len(recon_losses)}")
+        print(f"\n\nInspecting validation recon losses for epoch:")
         print(f"recon_losses: {recon_losses}")
+        print(f"sum(recon_losses) = {sum(recon_losses)}")
         print(f"len(recon_losses) = {len(recon_losses)}")
+        print(f"max(recon_losses) = {max(recon_losses)}")
+        top_10_losses = sorted(recon_losses, reverse=True)[:10]
+        print(f"Top 10 biggest elements of recon_losses: {top_10_losses}")
+        print(f"min(recon_losses) = {min(recon_losses)}")
         print(f"Validation recon loss: {sum(recon_losses) / len(recon_losses):.4f}\n\n")
+
+
 
         return {
             "val_recon_epoch": sum(recon_losses) / len(recon_losses) if recon_losses else None,
@@ -251,6 +261,8 @@ class Trainer:
             train_loss_epoch_list = []
             pbar = tqdm(self.train_loader, desc=f"epoch {epoch}", dynamic_ncols=True)
 
+
+            self.model.train()
             for batch in pbar:
                 loss, logs = self._train_step(batch)
                 # log_metrics(step=global_step, loss=loss.item(), **logs)
@@ -278,9 +290,9 @@ class Trainer:
             # ----------- full-train reconstruction ---------- #
             self.model.eval()
             train_recon_losses = []
-            print(f"\n\nFull train set: {len(self.train_loader)} batches")
-            print(f"self.train_loader: {self.train_loader}")
-            print(f"self.train_loader.dataset: {self.train_loader.dataset}")
+            # print(f"\n\nFull train set: {len(self.train_loader)} batches")
+            # print(f"self.train_loader: {self.train_loader}")
+            # print(f"self.train_loader.dataset: {self.train_loader.dataset}")
             with torch.no_grad():
                 for train_batch in self.train_loader:
                     # print(f"shape of train_batch: {[x.shape for x in train_batch]}")
@@ -300,9 +312,18 @@ class Trainer:
                     # print("torch mse with reduction='mean':", torch.nn.functional.mse_loss(x_hat, x, reduction='mean').item())
                     # print("torch mse with reduction='sum':", torch.nn.functional.mse_loss(x_hat, x, reduction='sum').item())
                     train_recon_losses.append(torch.nn.functional.mse_loss(x_hat, x).item())
-            self.model.train()
+            
             # print(f"train_recon_losses: {train_recon_losses}")
+            print(f"\n\nInspecting train recon losses for epoch {epoch}:")
+            print(f"train_recon_losses: {train_recon_losses}")  # print first 10 losses
             train_loss_epoch = sum(train_recon_losses) / len(train_recon_losses)
+            print(f"sum(train_recon_losses) = {sum(train_recon_losses)}")
+            print(f"len(train_recon_losses) = {len(train_recon_losses)}")
+            print(f"max(train_recon_losses) = {max(train_recon_losses)}")
+            top_10_losses = sorted(train_recon_losses, reverse=True)[:10]
+            print(f"Top 10 biggest elements of train_recon_losses: {top_10_losses}")
+            print(f"min(train_recon_losses) = {min(train_recon_losses)}")
+            print(f"Full train recon loss: {train_loss_epoch:.4f}\n\n")
             # print(f"Full train recon loss: {train_loss_epoch:.4f}\n")
             # print(f"len(train_recon_losses) = {len(train_recon_losses)}")
             # print("\n\n")

@@ -158,19 +158,35 @@ class WeightDataset(Dataset):
         blacklist = {}
         if cfg.filter_bad:
             blacklist = set(np.genfromtxt(cfg.filter_bad_path, dtype=str))
-        if object_names is None:
-            self.mlp_files = [file for file in list(os.listdir(mlps_folder))]
+            print(f"\n\n\nlen(blacklist): {len(blacklist)}\n\n\n")
+        
+            #all files in mlps_folder
+            mlp_files_all = [file for file in list(os.listdir(mlps_folder))]
+            self.mlp_files = [file for file in files_list if file.split("_")[1] not in blacklist]
+
+            print(f"\n\n\nlen(all_mlp_files:{len(mlp_files_all)}\nlen(filter_mlp_files:{len(self.mlp_files)})\n\n\n")
         else:
-            self.mlp_files = []
-            for file in list(os.listdir(mlps_folder)):
-                # Excluding black listed shapes
-                if cfg.filter_bad and file.split("_")[1] in blacklist:
-                    continue
-                # Check if file is in corresponding split (train, test, val)
-                # In fact, only train split is important here because we don't use test or val MLP weights
-                if ("_" in file and (file.split("_")[1] in object_names or (
-                        file.split("_")[1] + "_" + file.split("_")[2]) in object_names)) or (file in object_names):
-                    self.mlp_files.append(file)
+            print("\nWarning: cfg.filter_bad is False, not filtering bad files\n")
+            self.mlp_files = [file for file in list(os.listdir(mlps_folder))]
+
+            
+
+        # if object_names is None:
+        #     self.mlp_files = [file for file in list(os.listdir(mlps_folder))]
+        #     print(f"object_names is None, using all files in {mlps_folder}")
+        # else:
+        #     self.mlp_files = []
+        #     for file in list(os.listdir(mlps_folder)):
+        #         # Excluding black listed shapes
+        #         if cfg.filter_bad and file.split("_")[1] in blacklist:
+        #             print(f"\n\nSkipping blacklisted file: {file}\n\n")
+        #             continue
+        #         print(f"Not blacklisted file: {file}")
+        #         # Check if file is in corresponding split (train, test, val)
+        #         # In fact, only train split is important here because we don't use test or val MLP weights
+        #         if ("_" in file and (file.split("_")[1] in object_names or (
+        #                 file.split("_")[1] + "_" + file.split("_")[2]) in object_names)) or (file in object_names):
+        #             self.mlp_files.append(file)
         self.transform = None
         self.logger = wandb_logger
         self.model_dims = model_dims

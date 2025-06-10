@@ -10,8 +10,8 @@ model:
 # ───────── global flags ───────── #
 # run_name: 2025-05-24_20-48-18_full_ld16_hd128_64/best_model_run_vl0_3028
 # run_name: 2025-05-24_20-48-18_full_ld16_hd128_64/sanity_train1_val9
-run_name: full_ld16_hd128_64_normalized
-device: cuda
+run_name: full_ld16_hd128_64_lr1e-4_wd1e-5
+device: cpu
 # device: cpu
 seed: 42
 # ckpt_path: ${hydra:runtime.cwd}/autoencoders/checkpoints/ae/2025-05-26_07-50-55_full_latent512_hd8192_4096_2048/last_epoch75.pt
@@ -34,7 +34,7 @@ logging:
 
 # ───────── optimiser ───────── #
 optimizer:
-  lr: 1e-3
+  lr: 1e-4
   wd: 1e-5
 
 # ───────── trainer ─────────── #
@@ -45,7 +45,7 @@ trainer:
   mode: min                                    # "min" for losses, "max" for scores
   max_epochs: 200
   monitor: val_recon_epoch                            # scalar name to watch
-  patience : 100
+  patience : 200
 
 # ───────── trainer ─────────── #
 eval:
@@ -79,7 +79,8 @@ dataset:
   #test_split: 0.0
   num_workers: 2
 
-  filter_bad: false   
+  filter_bad: True
+  filter_bad_path: ./data/plane_problematic_shapes.txt 
   augment: none               # or "permute", "sort_permute", etc.
   jitter_augment: false
 

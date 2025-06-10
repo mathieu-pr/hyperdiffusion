@@ -3,13 +3,12 @@ defaults:
 - _self_
 model:
   input_dim: 36737
-run_name: full_ld16_hd128_64_normalized
-device: cuda
+run_name: full_ld16_hd128_64_lr1e-4_wd1e-5
+device: cpu
 seed: 42
-ckpt_path: ${hydra:runtime.cwd}/autoencoders/checkpoints/ae/2025-06-06_20-28-56_full_ld16_hd128_64_normalized_sanity_check_100
+ckpt_path: ${hydra:runtime.cwd}/autoencoders/checkpoints/ae/
 split_path: ${hydra:runtime.cwd}/autoencoders/checkpoints/splits_seed42_totallen4045_val0.15_test0.15.npz
-normalization_path: ${hydra:runtime.cwd}/autoencoders/checkpoints/normalization_stats_totallen4045_val0.15_test0.15_thresholdSTD_1e-05.pt
-batch_size : 16
+normalization_path: ${hydra:runtime.cwd}/autoencoders/checkpoints/normalization_stats_totallen3557_val0.15_test0.15_thresholdSTD_1e-05.pt
 timesteps: 500
 diff_config:
   params:
@@ -20,7 +19,7 @@ logging:
   project: mlp_autoencoders
   log_dir: ${hydra:runtime.cwd}/autoencoders/logs
 optimizer:
-  lr: 1e-3
+  lr: 1e-4
   wd: 1e-5
 trainer:
   model_name: ae
@@ -29,7 +28,7 @@ trainer:
   mode: min
   max_epochs: 200
   monitor: val_recon_epoch
-  patience: 100
+  patience: 200
 eval:
   model_name_eval: ae
   batch_size: 4
@@ -56,7 +55,8 @@ dataset:
   val_split: 0.15
   test_split: 0.15
   num_workers: 2
-  filter_bad: false
+  filter_bad: true
+  filter_bad_path: ./data/plane_problematic_shapes.txt
   augment: none
   jitter_augment: false
   transformer_config:
