@@ -141,6 +141,9 @@ def read_and_modify_one_block_of_yaml_data(
 # ---------------------------------------------------------------------- #
 @hydra.main(version_base=None, config_path="configs", config_name="default")
 def main(cfg: DictConfig):
+    torch.set_num_threads(2)
+
+
     print("\n" + "="*80)
     print("AUTOENCODER TRAINING INITIALIZATION")
     print("="*80)

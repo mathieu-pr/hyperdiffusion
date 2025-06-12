@@ -83,7 +83,7 @@ dataset:
   test_split: 0.15
   #val_split: 0.0
   #test_split: 0.0
-  num_workers: 4
+  num_workers: 1
 
   filter_bad: True
   filter_bad_path: ./data/plane_problematic_shapes.txt 
