@@ -61,6 +61,15 @@ class Trainer:
             weight_decay=cfg.optimizer.wd,
         )
 
+        # ---------------- LR Scheduler ------------------- #
+        self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            self.opt,
+            mode="min",
+            factor=cfg.scheduler.factor if hasattr(cfg, "scheduler") and hasattr(cfg.scheduler, "factor") else 0.5,
+            patience=cfg.scheduler.patience if hasattr(cfg, "scheduler") and hasattr(cfg.scheduler, "patience") else 5,
+            verbose=True
+        )
+
         # ------------- Checkpoint bookkeeping ---------- #
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         self.ckpt_folder = f"{timestamp}_{run_name}"                   
@@ -113,6 +122,17 @@ class Trainer:
         print(f"Normalization stats:")
         print(f"  Mean:                {self.mean}")
         print(f"  Std:                 {self.std}")
+        print(f"Training batch size:   {cfg.trainer.batch_size}")
+        print(f"Number of workers:     {cfg.dataset.num_workers}")
+        if hasattr(cfg, "scheduler"):
+            print("LR Scheduler parameters:")
+            factor = getattr(cfg.scheduler, "factor", None)
+            patience = getattr(cfg.scheduler, "patience", None)
+            print(f"  factor: {factor}")
+            print(f"  patience: {patience}")
+        else:
+            print("No LR Scheduler configured.")
+        print(f"Initial learning rate: {cfg.optimizer.lr}")
         print("=" * 60 + "\n")
 
         if self.val_loader is None:
@@ -208,6 +228,7 @@ class Trainer:
         """
         self.model.eval()
         recon_losses = []
+
         
         for batch in loader:
             batch = [x.to(self.cfg.device) for x in batch]
@@ -339,6 +360,23 @@ class Trainer:
 
             val_logs = self._compute_reconstruction_losses(self.val_loader, "val", epoch) if self.val_loader else {}
             log_metrics(step=global_step, **val_logs, epoch=epoch + 1)
+
+            # -------------- Log current learning rate ---------------- #
+            current_lr = self.opt.param_groups[0]["lr"]
+            print(f"Current learning rate: {current_lr:.6f}")
+            log_metrics(step=global_step, lr=current_lr, epoch=epoch + 1)
+
+            # ----------------- Scheduler step ----------------- #
+            if self.val_loader and self.scheduler is not None:
+                monitor_value = val_logs.get(self._monitor_key)
+                if monitor_value is not None:
+                    self.scheduler.step(monitor_value)
+            else:
+                print("No validation set provided or scheduler not configured. Skipping scheduler step.")
+
+            # ----------------- Save best model if improved ----------------- #
+            if self.val_loader:
+                self._maybe_save_best(val_logs, epoch)
         
             # ----------------- Periodic backup ----------------- #
             self._periodic_backup(epoch) 

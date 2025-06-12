@@ -10,7 +10,8 @@ model:
 # ───────── global flags ───────── #
 # run_name: 2025-05-24_20-48-18_full_ld16_hd128_64/best_model_run_vl0_3028
 # run_name: 2025-05-24_20-48-18_full_ld16_hd128_64/sanity_train1_val9
-run_name: cpu_ld16_hd128_64_lr1e-4_wd8e-5
+# run_name: cpu_ld16_hd128_64_lr1e-4_wd8e-5_lrsch
+run_name: cpu_ld16_hd128_64_sweep_lrsch
 device: cpu
 # device: cpu
 seed: 42
@@ -37,6 +38,11 @@ optimizer:
   lr: 1e-4
   wd: 8e-5
 
+# ───────── scheduler ───────── #
+scheduler:
+  factor: 0.9
+  patience: 10
+
 # ───────── trainer ─────────── #
 trainer:
   model_name: ae
@@ -45,7 +51,7 @@ trainer:
   mode: min                                    # "min" for losses, "max" for scores
   max_epochs: 200
   monitor: val_recon_epoch                            # scalar name to watch
-  patience : 200
+  patience : 25
 
 # ───────── trainer ─────────── #
 eval:
