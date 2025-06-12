@@ -13,6 +13,15 @@ from hd_utils import generate_mlp_from_weights, get_mlp
 from siren.dataio import anime_read
 
 
+import warnings
+
+warnings.filterwarnings(
+    "ignore",
+    message=".*Metric `FrechetInceptionDistance` will save all extracted features in buffer.*",
+    category=UserWarning
+)
+
+
 class VoxelDataset(Dataset):
     def __init__(
         self, mesh_folder, wandb_logger, model_dims, mlp_kwargs, cfg, object_names=None
@@ -158,13 +167,13 @@ class WeightDataset(Dataset):
         blacklist = {}
         if cfg.filter_bad:
             blacklist = set(np.genfromtxt(cfg.filter_bad_path, dtype=str))
-            print(f"\n\n\nlen(blacklist): {len(blacklist)}\n\n\n")
+            print(f"len(blacklist): {len(blacklist)}")
         
             #all files in mlps_folder
             mlp_files_all = [file for file in list(os.listdir(mlps_folder))]
             self.mlp_files = [file for file in files_list if file.split("_")[1] not in blacklist]
 
-            print(f"\n\n\nlen(all_mlp_files:{len(mlp_files_all)}\nlen(filter_mlp_files:{len(self.mlp_files)})\n\n\n")
+            print(f"len(all_mlp_files):{len(mlp_files_all)}\nlen(filter_mlp_files):{len(self.mlp_files)}")
         else:
             print("\nWarning: cfg.filter_bad is False, not filtering bad files\n")
             self.mlp_files = [file for file in list(os.listdir(mlps_folder))]
@@ -252,6 +261,8 @@ class WeightDataset(Dataset):
                 EPS = 1e-6
                 weights = (weights - self.mean) / (self.std + EPS)
 
+        
+
 
         if self.transform:
             weights = self.transform(weights)
@@ -266,6 +277,9 @@ class WeightDataset(Dataset):
         # case A: .pth file is directly the entry
         if file.endswith(".pth"):
             state_dict = torch.load(dir, map_location="cpu")
+
+
+           
 
         # case B: directory that already holds *_model_final.pth
         elif os.path.isdir(dir):
@@ -284,6 +298,11 @@ class WeightDataset(Dataset):
 
 
         weights, weights_prev = self.get_weights(state_dict)
+
+
+        # Check if any weight is greater than 1000 and print the file name if so
+        if torch.any(weights > 1000):
+            print(f"Weight > 500 found in file: {file}")
 
         if self.cfg.augment == "inter":
             other_index = np.random.choice(len(self.mlp_files))

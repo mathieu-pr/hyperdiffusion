@@ -24,6 +24,14 @@ from torchmetrics.utilities.data import dim_zero_cat
 from torchmetrics.utilities.imports import (_SCIPY_AVAILABLE,
                                             _TORCH_FIDELITY_AVAILABLE)
 
+import warnings
+
+warnings.filterwarnings(
+    "ignore",
+    message=".*Metric `FrechetInceptionDistance` will save all extracted features in buffer.*",
+    category=UserWarning
+)
+
 if _TORCH_FIDELITY_AVAILABLE:
     from torch_fidelity.feature_extractor_inceptionv3 import \
         FeatureExtractorInceptionV3

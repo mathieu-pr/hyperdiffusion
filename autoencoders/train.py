@@ -51,6 +51,21 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from dataset import WeightDataset
 from datetime import datetime
 
+import warnings
+
+# Suppress specific FutureWarnings
+warnings.filterwarnings(
+    "ignore",
+    category=FutureWarning,
+    message=".*torch.load.*weights_only=False.*"
+)
+
+warnings.filterwarnings(
+    "ignore",
+    message=".*Metric `FrechetInceptionDistance` will save all extracted features in buffer.*",
+    category=UserWarning
+)
+
 
 # ----------------------------- helpers -------------------------------- #
 def _build_splits(
@@ -89,9 +104,7 @@ def _build_splits(
         f"splits_seed{cfg.seed}_totallen{total_len}_val{cfg.dataset.val_split}_test{cfg.dataset.test_split}.npz"
     )
 
-
-    print(f"\n\ncreating new split: {split_file_with_info}")
-    print(f"train_len: {train_len}, val_len: {val_len}, test_len: {test_len}\n\n")
+    print(f"creating new split: {split_file_with_info}")
 
     g = torch.Generator().manual_seed(cfg.seed)
     train_set, val_set, test_set = random_split(
@@ -128,114 +141,137 @@ def read_and_modify_one_block_of_yaml_data(
 # ---------------------------------------------------------------------- #
 @hydra.main(version_base=None, config_path="configs", config_name="default")
 def main(cfg: DictConfig):
-    # 1.  Initialise wandb
+    print("\n" + "="*80)
+    print("AUTOENCODER TRAINING INITIALIZATION")
+    print("="*80)
+
+    # 1. Initialize wandb
+    print("\n1. WANDB INITIALIZATION")
+    print("-"*30)
     run = init_wandb(cfg, run_name=cfg.run_name)
+    print(f"Run name:        {run.name}")
+    print(f"Model name:      {cfg.trainer.model_name}")
+    print(f"Dataset root:    {cfg.dataset.root}")
+    print("\nTraining Parameters:")
+    print(f"  Learning rate:  {cfg.optimizer.lr}")
+    print(f"  Weight decay:   {cfg.optimizer.wd}")
+    print(f"  Batch size:     {cfg.trainer.batch_size}")
+    print(f"Model config:     {cfg.model}")
 
-    print(f"\n\n{run.name} - {cfg.trainer.model_name}\n")
-    print(f"cfg.model: {cfg.model}\n")
-    print(f"\ncfg.dataset.root: {cfg.dataset.root}\n")
-
-    print(f"\nLearning rate: {cfg.optimizer.lr}")
-    print(f"Weight decay: {cfg.optimizer.wd}")
-    print(f"Batch size: {cfg.trainer.batch_size}")
-
-    # 2.  Build full dataset WITHOUT normalization (to compute mean/std)
+    # 2. Build initial dataset
+    print("\n2. DATASET INITIALIZATION")
+    print("-"*30)
+    print("Building initial dataset without normalization...")
     full_ds = WeightDataset(
         mlps_folder=cfg.dataset.root,
         wandb_logger=None,
         model_dims=cfg.dataset.model_dims,
         mlp_kwargs=cfg.dataset.mlp_kwargs,
         cfg=cfg.dataset,
-        should_normalize=False,  # disable normalization for now
-        normalization_stats_path=None  # disable normalization for now
+        should_normalize=False,
+        normalization_stats_path=None
     )
+    print(f"Total dataset size: {len(full_ds)}")
 
-    # 3.  Split & save indices
+    # 3. Split & save indices
+    print("\n3. DATASET SPLITTING")
+    print("-"*30)
     ckpt_dir = Path(cfg.trainer.ckpt_dir)
     ckpt_dir.mkdir(parents=True, exist_ok=True)
     split_file = ckpt_dir / "splits.npz"
-
-    print(f"\nlen(full_ds): {len(full_ds)}")
+    
     train_set, val_set, test_set = _build_splits(full_ds, cfg, split_file)
+    print("\nSplit Information:")
+    print(f"  Training set:   {len(train_set.indices)} samples")
+    print(f"  Validation set: {len(val_set.indices) if val_set else 0} samples")
+    print(f"  Test set:       {len(test_set.indices) if test_set else 0} samples")
 
-    # 4.  Compute normalization stats on training set only
-    threshold_std = 1e-5 
-
-    normalization_stats_name = f"normalization_stats_totallen{len(full_ds)}_val{cfg.dataset.val_split}_test{cfg.dataset.test_split}_thresholdSTD_{threshold_std}.pt"
+    # 4. Compute normalization stats
+    print("\n4. NORMALIZATION STATISTICS")
+    print("-"*30)
+    threshold_std = 1e-3
+    normalization_stats_name = (
+        f"normalization_stats_totallen{len(full_ds)}_"
+        f"val{cfg.dataset.val_split}_test{cfg.dataset.test_split}_"
+        f"thresholdSTD_{threshold_std}.pt"
+    )
     normalization_stats_path = Path(cfg.trainer.ckpt_dir) / normalization_stats_name
-    print(f"\n\nnormalization_stats_path: {normalization_stats_path}\n")
+    print(f"Stats file: {normalization_stats_path}")
 
     if not normalization_stats_path.exists():
-        print("→ Computing normalization stats from training set only...")
+        print("\nComputing new normalization stats...")
         all_train_weights = []
         for idx in train_set.indices:
-            weights, *_ = full_ds[idx]  # full_ds is unnormalized
+            weights, *_ = full_ds[idx]
             all_train_weights.append(weights)
         all_train_weights = torch.stack(all_train_weights)
-
-        #print the number of samples used to compute normalization stats
-        print(f"→ Number of samples used for normalization stats: {len(all_train_weights)}")
-
+        
+        print(f"Using {len(all_train_weights)} training samples for statistics")
+        
         mean = all_train_weights.mean(dim=0)
         std = all_train_weights.std(dim=0)
-
-        #replace NaN values in mean and std with 0 and 1 respectively
         std = torch.where(torch.isnan(std), torch.ones_like(std), std)
-
-        
-        #prevent problem when std is very small in training set and not in validation/test sets
         std = std.clamp(min=threshold_std)
-
-
-
+        
         torch.save({"mean": mean, "std": std}, normalization_stats_path)
-        print(f"→ Saved normalization stats to {normalization_stats_path}")
+        print("→ Normalization stats saved successfully")
     else:
-        print(f"→ Using existing normalization stats: {normalization_stats_path}")
-
-    #print normalization stats
-    normalization_stats = torch.load(normalization_stats_path)
-    print(f"\nNormalization stats: mean={normalization_stats['mean']}, std={normalization_stats['std']}\n")
-
-    #print the shape of the mean and std
-    print(f"mean shape: {normalization_stats['mean'].shape}, std shape: {normalization_stats['std'].shape}\n")
-
-    #update the normalization path in the yaml
-    read_and_modify_one_block_of_yaml_data('./autoencoders/configs/default.yaml', './autoencoders/configs/default_eval.yaml', 'normalization_path', normalization_stats_name)
+        print("\nLoading existing normalization stats...")
     
+    stats = torch.load(normalization_stats_path)
+    print("\nNormalization Statistics Shape:")
+    print(f"  Mean shape: {stats['mean'].shape}")
+    print(f"  Std shape:  {stats['std'].shape}")
 
-
-    # 5.  Rebuild dataset WITH normalization
+    # 5. Build normalized dataset
     norm_ds = WeightDataset(
         mlps_folder=cfg.dataset.root,
         wandb_logger=None,
         model_dims=cfg.dataset.model_dims,
         mlp_kwargs=cfg.dataset.mlp_kwargs,
         cfg=cfg.dataset,
-        should_normalize=True,  # enable normalization
+        should_normalize=True,
         normalization_stats_path=normalization_stats_path
     )
 
-    # Redo the splits
+    # Redo splits with normalized data
     train_set, val_set, test_set = _build_splits(norm_ds, cfg, split_file)
-    print(f"\n\ntrain_set: {len(train_set)}, val_set: {len(val_set) if val_set else 'None'}, test_set: {len(test_set) if test_set else 'None'}\n")
+    print("\nNormalized Dataset Splits:")
+    print(f"  Training:   {len(train_set)} samples")
+    print(f"  Validation: {len(val_set) if val_set else 0} samples")
+    print(f"  Test:       {len(test_set) if test_set else 0} samples")
 
-    # 6. Wrap in datamodule
+    # 6. Training setup
     datamodule = SimpleNamespace(train=train_set, val=val_set, test=test_set)
-
-    # 7. Instantiate model
     model = instantiate(cfg.model)
 
-    # 8. Launch training + Save the best epoch path to default_eval.yaml
-    trainer = Trainer(model, datamodule, cfg, run_name=run.name, normalization_stats_path=normalization_stats_path)
+    # 7. Launch training
+    print("-"*30, "\n\n")
+    trainer = Trainer(model, datamodule, cfg, run_name=run.name, 
+                     normalization_stats_path=normalization_stats_path)
     ckpt_folder_path = trainer.fit()
 
-    # 8b. Update default_eval.yaml, ckpt_name
-    read_and_modify_one_block_of_yaml_data('./autoencoders/configs/default_eval.yaml', './autoencoders/configs/default_eval.yaml', 'ckpt_path', cfg.ckpt_path + ckpt_folder_path)
+    # 8. Update eval config
+    print("\n8. UPDATING EVALUATION CONFIG")
+    print("-"*30)
+    read_and_modify_one_block_of_yaml_data(
+        './autoencoders/configs/default.yaml',
+        './autoencoders/configs/default_eval.yaml',
+        'normalization_path',
+        normalization_stats_name
+    )
+    read_and_modify_one_block_of_yaml_data(
+        './autoencoders/configs/default_eval.yaml',
+        './autoencoders/configs/default_eval.yaml',
+        'ckpt_path',
+        cfg.ckpt_path + ckpt_folder_path
+    )
+    print("Evaluation config updated successfully")
 
-    # 9. Finish wandb
+    
     run.finish()
-
+    print("\nTraining completed successfully!")
+    print("="*80 + "\n")
 
 if __name__ == "__main__":
     main()

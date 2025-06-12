@@ -7,3 +7,34 @@ hidden_dims: [128, 64]          # encoder & decoder MLP widths
 #_target_: autoencoders.models.ae.AutoEncoder  # dotted path to the nn.Module
 #latent_dim: 128                       # size of z
 #hidden_dims: [512, 256, 128]          # encoder & decoder MLP widths
+
+
+
+# _target_: autoencoders.models.ae.AutoEncoder  
+# latent_dim: 64                    
+# hidden_dims: [256, 128]    
+
+# _target_: autoencoders.models.ae.AutoEncoder  
+# latent_dim: 64                   
+# hidden_dims: [512, 256, 128]     
+
+# _target_: autoencoders.models.ae.AutoEncoder  
+# latent_dim: 128                    
+# hidden_dims: [512, 256]        
+
+
+# _target_: autoencoders.models.ae.AutoEncoder  
+# latent_dim: 32                    
+# hidden_dims: [256, 128, 64]    
+
+# _target_: autoencoders.models.ae.AutoEncoder  
+# latent_dim: 32                    
+# hidden_dims: [512, 256, 128]     
+
+# _target_: autoencoders.models.ae.AutoEncoder  
+# latent_dim: 32                   
+# hidden_dims: [512, 256, 128, 64]   
+
+# _target_: autoencoders.models.ae.AutoEncoder  
+# latent_dim: 128                   
+# hidden_dims: [1024, 512, 256]   

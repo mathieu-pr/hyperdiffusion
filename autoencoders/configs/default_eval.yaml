@@ -3,12 +3,12 @@ defaults:
 - _self_
 model:
   input_dim: 36737
-run_name: full_ld16_hd128_64_lr1e-4_wd1e-5
+run_name: cpu_ld16_hd128_64_lr1e-4_wd8e-5
 device: cpu
 seed: 42
 ckpt_path: ${hydra:runtime.cwd}/autoencoders/checkpoints/ae/
 split_path: ${hydra:runtime.cwd}/autoencoders/checkpoints/splits_seed42_totallen4045_val0.15_test0.15.npz
-normalization_path: ${hydra:runtime.cwd}/autoencoders/checkpoints/normalization_stats_totallen3557_val0.15_test0.15_thresholdSTD_1e-05.pt
+normalization_path: ${hydra:runtime.cwd}/autoencoders/checkpoints/normalization_stats_totallen3530_val0.15_test0.15_thresholdSTD_0.001.pt
 timesteps: 500
 diff_config:
   params:
@@ -20,7 +20,7 @@ logging:
   log_dir: ${hydra:runtime.cwd}/autoencoders/logs
 optimizer:
   lr: 1e-4
-  wd: 1e-5
+  wd: 8e-5
 trainer:
   model_name: ae
   batch_size: 16
@@ -54,7 +54,7 @@ dataset:
   mlp_kwargs: {}
   val_split: 0.15
   test_split: 0.15
-  num_workers: 2
+  num_workers: 4
   filter_bad: true
   filter_bad_path: ./data/plane_problematic_shapes.txt
   augment: none

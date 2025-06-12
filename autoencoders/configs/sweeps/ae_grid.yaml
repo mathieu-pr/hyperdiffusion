@@ -6,7 +6,7 @@ hydra:
   sweep:
       dir: autoencoders/sweeps_log/${now:%Y-%m-%d}/${now:%H-%M-%S}
   sweeper:
-    max_batch_size: 1
+    max_batch_size: 32
     overrides:
       # optimizer.lr: 1e-3,5e-4,1e-4
       model.latent_dim: 32, 64,128,256
