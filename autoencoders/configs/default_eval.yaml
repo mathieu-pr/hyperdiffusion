@@ -3,10 +3,10 @@ defaults:
 - _self_
 model:
   input_dim: 36737
-run_name: cpu_ld16_hd128_64_sweep_lrsch
+run_name: cpu_ld32_hd256_128_sweep_lrsch_drop
 device: cpu
 seed: 42
-ckpt_path: C:\Users\matze\Documents\0_TUM\ADL4CV\HyperDiffusion-main/autoencoders/checkpoints/ae/2025-06-13_14-34-17_cpu_ld16_hd128_64_sweep_lrsch
+ckpt_path: C:\Users\matze\Documents\0_TUM\ADL4CV\HyperDiffusion-main/autoencoders/checkpoints/ae/2025-06-13_15-48-03_cpu_ld32_hd256_128_sweep_lrsch_drop
 split_path: ${hydra:runtime.cwd}/autoencoders/checkpoints/splits_seed42_totallen4045_val0.15_test0.15.npz
 normalization_path: ${hydra:runtime.cwd}/autoencoders/checkpoints/normalization_stats_totallen3530_val0.15_test0.15_thresholdSTD_0.001.pt
 timesteps: 500

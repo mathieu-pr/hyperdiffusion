@@ -55,7 +55,7 @@ class Trainer:
         )
 
         # ---------------- Optimiser --------------------- #
-        self.opt = torch.optim.Adam(
+        self.opt = torch.optim.AdamW(
             self.model.parameters(),
             lr=cfg.optimizer.lr,
             weight_decay=cfg.optimizer.wd,
