@@ -151,13 +151,17 @@ def main(cfg: DictConfig):
     # 1. Initialize wandb
     print("\n1. WANDB INITIALIZATION")
     print("-"*30)
-    run = init_wandb(cfg, run_name=cfg.run_name)
+    run_name = (
+        f"{cfg.run_name}_ld{cfg.dataset.model_dims[0]}_hd{'_'.join(str(d) for d in cfg.model.hidden_dims)}_"
+        f"lr{cfg.optimizer.lr:.0e}_wd{cfg.optimizer.wd:.0e}_do{cfg.model.dropout}"
+    )
+    run = init_wandb(cfg, run_name=run_name)
     print(f"Run name:        {run.name}")
     print(f"Model name:      {cfg.trainer.model_name}")
     print(f"Dataset root:    {cfg.dataset.root}")
     print("\nTraining Parameters:")
-    print(f"  Learning rate:  {cfg.optimizer.lr}")
-    print(f"  Weight decay:   {cfg.optimizer.wd}")
+    print(f"  Learning rate:  {cfg.optimizer.lr:.0e}")
+    print(f"  Weight decay:   {cfg.optimizer.wd:.0e}")
     print(f"  Batch size:     {cfg.trainer.batch_size}")
     print(f"Model config:     {cfg.model}")
 

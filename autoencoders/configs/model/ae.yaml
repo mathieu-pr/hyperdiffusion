@@ -2,7 +2,7 @@
 _target_: autoencoders.models.ae.AutoEncoder  # dotted path to the nn.Module
 latent_dim: 32                       # size of z
 hidden_dims: [256, 128]          # encoder & decoder MLP widths
-drop_out: [0.3, 0.2]
+dropout: [0.3, 0.2]
 
 
 #_target_: autoencoders.models.ae.AutoEncoder  # dotted path to the nn.Module

@@ -7,7 +7,7 @@ from .base import BaseAE
 
 
 class AutoEncoder(BaseAE):
-    def __init__(self, input_dim: int, latent_dim: int, hidden_dims: list[int], drop_out: list[float]):
+    def __init__(self, input_dim: int, latent_dim: int, hidden_dims: list[int], dropout: list[float]):
         super().__init__()
 
         # Build encoder
@@ -16,19 +16,19 @@ class AutoEncoder(BaseAE):
         for i, h_dim in enumerate(hidden_dims):
             encoder_layers.append(nn.Linear(prev_dim, h_dim))
             encoder_layers.append(nn.ReLU())
-            encoder_layers.append(nn.Dropout(p=drop_out[i])) 
+            encoder_layers.append(nn.Dropout(p=dropout[i])) 
             prev_dim = h_dim
         encoder_layers.append(nn.Linear(prev_dim, latent_dim))
         self.encoder = nn.Sequential(*encoder_layers)
 
         # Build decoder (reverse hidden_dims)
-        reversed_drop_out = list(reversed(drop_out))
+        reversed_dropout = list(reversed(dropout))
         decoder_layers = []
         prev_dim = latent_dim
         for i, h_dim in enumerate(reversed(hidden_dims)):
             decoder_layers.append(nn.Linear(prev_dim, h_dim))
             decoder_layers.append(nn.ReLU())
-            decoder_layers.append(nn.Dropout(p=reversed_drop_out[i])) 
+            decoder_layers.append(nn.Dropout(p=reversed_dropout[i])) 
             prev_dim = h_dim
         decoder_layers.append(nn.Linear(prev_dim, input_dim))
         self.decoder = nn.Sequential(*decoder_layers)
