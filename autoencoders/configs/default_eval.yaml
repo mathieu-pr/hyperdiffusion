@@ -6,7 +6,7 @@ model:
 run_name: cpu_ld16_hd128_64_sweep_lrsch
 device: cpu
 seed: 42
-ckpt_path: C:\Users\matze\Documents\0_TUM\ADL4CV\HyperDiffusion-main/autoencoders/checkpoints/ae/2025-06-12_19-32-42_cpu_ld16_hd128_64_sweep_lrsch
+ckpt_path: C:\Users\matze\Documents\0_TUM\ADL4CV\HyperDiffusion-main/autoencoders/checkpoints/ae/2025-06-13_14-34-17_cpu_ld16_hd128_64_sweep_lrsch
 split_path: ${hydra:runtime.cwd}/autoencoders/checkpoints/splits_seed42_totallen4045_val0.15_test0.15.npz
 normalization_path: ${hydra:runtime.cwd}/autoencoders/checkpoints/normalization_stats_totallen3530_val0.15_test0.15_thresholdSTD_0.001.pt
 timesteps: 500
@@ -57,7 +57,7 @@ dataset:
   mlp_kwargs: {}
   val_split: 0.15
   test_split: 0.15
-  num_workers: 4
+  num_workers: 1
   filter_bad: true
   filter_bad_path: ./data/plane_problematic_shapes.txt
   augment: none
