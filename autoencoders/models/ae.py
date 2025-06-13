@@ -16,19 +16,23 @@ class AutoEncoder(BaseAE):
         for i, h_dim in enumerate(hidden_dims):
             encoder_layers.append(nn.Linear(prev_dim, h_dim))
             encoder_layers.append(nn.ReLU())
-            encoder_layers.append(nn.Dropout(p=dropout[i])) 
+            # Apply dropout if available, otherwise use 0
+            p = dropout[i] if i < len(dropout) else dropout[0]
+            encoder_layers.append(nn.Dropout(p=p))
             prev_dim = h_dim
         encoder_layers.append(nn.Linear(prev_dim, latent_dim))
         self.encoder = nn.Sequential(*encoder_layers)
 
         # Build decoder (reverse hidden_dims)
-        reversed_dropout = list(reversed(dropout))
         decoder_layers = []
         prev_dim = latent_dim
-        for i, h_dim in enumerate(reversed(hidden_dims)):
+        reversed_hidden_dims = list(reversed(hidden_dims))
+        for i, h_dim in enumerate(reversed_hidden_dims):
             decoder_layers.append(nn.Linear(prev_dim, h_dim))
             decoder_layers.append(nn.ReLU())
-            decoder_layers.append(nn.Dropout(p=reversed_dropout[i])) 
+            # Apply dropout if available, otherwise use 0
+            p = dropout[i] if i < len(dropout) else 0
+            decoder_layers.append(nn.Dropout(p=p))
             prev_dim = h_dim
         decoder_layers.append(nn.Linear(prev_dim, input_dim))
         self.decoder = nn.Sequential(*decoder_layers)
