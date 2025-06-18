@@ -264,6 +264,35 @@ class Trainer:
         }
     
 
+    # ------------------------------------------------------------------ #
+    @torch.no_grad()
+    def compute_loss(self, loader: DataLoader, split_name: str = "val") -> Dict[str, float]:
+        """
+        Computes the average of all losses returned by the model's loss function over the entire dataloader.
+
+        Args:
+            loader (DataLoader): DataLoader for which to compute the loss.
+            split_name (str): Used for naming keys in the returned dictionary (e.g., 'train' or 'val').
+
+        Returns:
+            Dict[str, float]: Dictionary of averaged loss components, prefixed by the split_name.
+        """
+        self.model.eval()
+        loss_logs_accum: Dict[str, float] = {}
+        count = 0
+
+        for batch in loader:
+            batch = [x.to(self.device) for x in batch]
+            _, logs = self.model.loss(batch)
+
+            for key, val in logs.items():
+                loss_logs_accum[key] = loss_logs_accum.get(key, 0.0) + val
+            count += 1
+
+        averaged_logs = {f"{split_name}_{k}": v / count for k, v in loss_logs_accum.items()}
+        return averaged_logs
+
+
 
     # ------------------------------------------------------------------ #
     def _is_better(self, current: float) -> bool:
@@ -389,6 +418,10 @@ class Trainer:
             # Compute mean of metrics over the epoch
             mean_epoch_logs = {k: v / num_batches for k, v in epoch_logs.items()}
             log_metrics(step=global_step, **mean_epoch_logs, epoch=epoch + 1)
+
+            # -------------- Log validation loss for all loss components ---------------- #
+            val_losses = self.compute_loss(self.val_loader, "val")
+            log_metrics(step=global_step, **val_losses, epoch=epoch + 1)
 
             # -------------- Log training and validation loss ---------------- #  
             train_logs = self._compute_reconstruction_losses(self.train_loader, "train", epoch)
