@@ -7,7 +7,7 @@ from .base import BaseAE
 
 
 class AutoEncoder(BaseAE):
-    def __init__(self, input_dim: int, latent_dim: int, hidden_dims: list[int], dropout: list[float]):
+    def __init__(self, input_dim: int, latent_dim: int, hidden_dims: list[int], dropout: list[float], **kwargs):
         super().__init__()
 
         # Build encoder
@@ -50,4 +50,4 @@ class AutoEncoder(BaseAE):
         x, *_ = batch
         x̂ = self.forward(x)
         recon_loss = F.mse_loss(x̂, x)
-        return recon_loss, {"recon": recon_loss.item()}
+        return recon_loss, {"loss": recon_loss.item(), "recon_loss": recon_loss.item()}

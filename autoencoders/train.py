@@ -152,7 +152,7 @@ def main(cfg: DictConfig):
     print("\n1. WANDB INITIALIZATION")
     print("-"*30)
     run_name = (
-        f"{cfg.run_name}_ld{cfg.dataset.model_dims[0]}_hd{'_'.join(str(d) for d in cfg.model.hidden_dims)}_"
+        f"{cfg.run_name}_{cfg.model.name}_ld{cfg.model.latent_dim}_hd{'_'.join(str(d) for d in cfg.model.hidden_dims)}_"
         f"lr{cfg.optimizer.lr:.0e}_wd{cfg.optimizer.wd:.0e}_do{cfg.model.dropout}"
     )
     run = init_wandb(cfg, run_name=run_name)

@@ -1,5 +1,5 @@
 defaults:
-  - model: ae
+  - model: vae
   - _self_
 
 
@@ -45,7 +45,7 @@ scheduler:
 
 # ───────── trainer ─────────── #
 trainer:
-  model_name: ae
+  model_name: autoencoder
   batch_size: 16
   ckpt_dir: ${hydra:runtime.cwd}/autoencoders/checkpoints   # where files land
   mode: min                                    # "min" for losses, "max" for scores

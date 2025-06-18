@@ -75,7 +75,7 @@ class Trainer:
         self.ckpt_folder = f"{timestamp}_{run_name}"                   
         self.ckpt_dir = Path(
             cfg.trainer.ckpt_dir,
-            cfg.trainer.model_name,
+            cfg.model.name,
             self.ckpt_folder,
         )
         self.ckpt_dir.mkdir(parents=True, exist_ok=True)
@@ -319,9 +319,12 @@ class Trainer:
             return
         loss_str = f"{self.best_value:.4f}".replace(".", "_")
         path = self.ckpt_dir / f"backup_epoch{epoch}_vl{loss_str}.pt"
-        torch.save(self.best_state_dict, path)
+        self.save_checkpoint_with_parameters(
+            epoch=epoch,
+            name="backup",
+            val_recon=loss_str
+        )
         self._last_backup_epoch = epoch
-        print(f"Periodic backup written to {path}")
 
 
     # ------------------------------------------------------------------ #
@@ -331,11 +334,29 @@ class Trainer:
             print("Early stop, but no best_state_dict found – nothing saved.")
             return
         loss_str = f"{self.best_value:.4f}".replace(".", "_")
-        best_ckpt_name = f"best_model_run_vl{loss_str}.pt"
-        path = self.ckpt_dir / best_ckpt_name
-        torch.save(self.best_state_dict, path)
-        print(f"Early-stopping: best model (vl={self.best_value:.4f}) saved to {path}")
+        best_ckpt_name = self.save_checkpoint_with_parameters(
+            epoch="Earlystop",
+            name="best_model_run",
+            val_recon=loss_str
+        )
+        print(f"Early-stopping: best model (vl={self.best_value:.4f}) saved to {best_ckpt_name}")
         return best_ckpt_name
+    
+
+    # ------------------------------------------------------------------ #
+    def save_checkpoint_with_parameters(self, epoch, name: str, val_recon):
+        """Save a checkpoint with model parameters, validation reconstruction loss, and model config."""
+        val_recon_str = f"{float(val_recon):.4f}"
+        ckpt_path = self.ckpt_dir / f"{name}_epoch{epoch}_valrecon{val_recon_str}.pt"
+        torch.save({
+            "model_state_dict": self.model.state_dict(),
+            "optimizer_state_dict": self.opt.state_dict(),
+            "epoch": epoch,
+            "val_recon": val_recon,
+            "model_cfg": self.cfg.model
+        }, ckpt_path)
+        print(f"Checkpoint saved to {ckpt_path}")
+        return f"{name}_epoch{epoch}_valrecon{val_recon}.pt"
 
 
     # ------------------------------------------------------------------ #
@@ -348,11 +369,26 @@ class Trainer:
             pbar = tqdm(self.train_loader, desc=f"epoch {epoch}", dynamic_ncols=True)
 
             self.model.train()
+            # Accumulate logs for averaging
+            epoch_logs = {}
+            num_batches = 0
+
             for batch in pbar:
                 loss, logs = self._train_step(batch)
                 pbar.set_postfix(loss=f"{loss.item():.4f}")
                 global_step += 1
                 train_loss_epoch_list.append(loss.item())
+                num_batches += 1
+
+                # Accumulate metrics
+                for k, v in logs.items():
+                    if k not in epoch_logs:
+                        epoch_logs[k] = 0.0
+                    epoch_logs[k] += v
+
+            # Compute mean of metrics over the epoch
+            mean_epoch_logs = {k: v / num_batches for k, v in epoch_logs.items()}
+            log_metrics(step=global_step, **mean_epoch_logs, epoch=epoch + 1)
 
             # -------------- Log training and validation loss ---------------- #  
             train_logs = self._compute_reconstruction_losses(self.train_loader, "train", epoch)
@@ -393,15 +429,20 @@ class Trainer:
 
         # ------------------ Save last epoch model ----------------- #
         final_epoch = epoch   # last finished epoch
-        final_ckpt = self.ckpt_dir / f"last_epoch{final_epoch}.pt"
-        torch.save(self.model.state_dict(), final_ckpt)
+        # Use the best_value if available, otherwise use 0.0 as a placeholder
+        val_recon_value = self.best_value if self.best_value is not None else 0.0
+        final_ckpt = self.save_checkpoint_with_parameters(
+            epoch=final_epoch,
+            name="last_epoch",
+            val_recon=val_logs["val_recon_epoch"]
+        )
         print(f"Last epoch model saved to {final_ckpt}")
 
         # ------------------ Save best model if not already saved ----------------- #   
         if best_epoch_name is None and self.best_state_dict is not None:
             best_epoch_name = self._save_best_on_early_stop()
         if best_epoch_name is not None:
-            print(f"Best model saved as {best_epoch_name} in {self.ckpt_dir}")
+            print(f"Best model already saved as {best_epoch_name} in {self.ckpt_dir}")
 
         return self.ckpt_folder
 
