@@ -188,7 +188,8 @@ class Trainer:
         top10_min = -top10_min
         
         # Find outliers
-        mask = (inputs > 1000).any(dim=tuple(range(1, inputs.dim())))
+        #mask = (inputs > 1000).any(dim=tuple(range(1, inputs.dim())))
+        mask = (inputs > 1000).view(inputs.size(0), -1).any(dim=1)
         indices = torch.nonzero(mask, as_tuple=False).squeeze().cpu().numpy()
         num_outliers = mask.sum().item()
         
