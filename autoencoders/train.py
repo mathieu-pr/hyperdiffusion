@@ -256,7 +256,8 @@ def main(cfg: DictConfig):
     print("-"*30, "\n\n")
     trainer = Trainer(model, datamodule, cfg, run_name=run.name, 
                      normalization_stats_path=normalization_stats_path)
-    ckpt_folder_path = trainer.fit()
+    ckpt_folder_path, val_recon_val = trainer.fit()
+    print(val_recon_val)
 
     # 8. Update eval config
     print("\n8. UPDATING EVALUATION CONFIG")
@@ -279,6 +280,11 @@ def main(cfg: DictConfig):
     run.finish()
     print("\nTraining completed successfully!")
     print("="*80 + "\n")
+
+    
+    with open("final_loss.txt", "w") as f:
+        f.write(str(val_recon_val))
+
 
 if __name__ == "__main__":
     main()

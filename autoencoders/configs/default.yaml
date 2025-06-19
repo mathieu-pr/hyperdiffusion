@@ -1,24 +1,12 @@
 defaults:
-  - model: vae
-  - _self_
-
-
-# ───────── model ───────── #
+- model: vae
+- _self_
 model:
   input_dim: 36737
-
-# ───────── global flags ───────── #
-# run_name: 2025-05-24_20-48-18_full_ld16_hd128_64/best_model_run_vl0_3028
-# run_name: 2025-05-24_20-48-18_full_ld16_hd128_64/sanity_train1_val9
-# run_name: cpu_ld16_hd128_64_lr1e-4_wd8e-5_lrsch
-run_name: cpu_W
-device: cpu
-# device: cpu
+run_name: vae_ld32_hd8192-512_do0.3_rw1.0_kw0.05_lr0.001_wd1e-05
+device: cuda
 seed: 42
-# ckpt_path: ${hydra:runtime.cwd}/autoencoders/checkpoints/ae/2025-05-26_07-50-55_full_latent512_hd8192_4096_2048/last_epoch75.pt
-# ckpt_path: ${hydra:runtime.cwd}/autoencoders/checkpoints/ae/2025-05-31_11-14-22_2025-05-24_20-48-18_full_ld16_hd128_64/best_model_run_vl0_3028/best_model_run_vl0_3134.pt
-# ckpt_path: ${hydra:runtime.cwd}/autoencoders/checkpoints/ae/2025-05-24_20-48-18_full_ld16_hd128_64/best_model_run_vl0_3028.pt   #comment this line instead of removing it
-ckpt_path: ${hydra:runtime.cwd}/autoencoders/checkpoints/ae/   #comment this line instead of removing it
+ckpt_path: ${hydra:runtime.cwd}/autoencoders/checkpoints/ae/
 split_path: ${hydra:runtime.cwd}/autoencoders/checkpoints/splits_seed42_totallen4045_val0.15_test0.15.npz
 normalization_path: ${hydra:runtime.cwd}/autoencoders/checkpoints/
 timesteps: 500
@@ -27,97 +15,79 @@ diff_config:
     model_mean_type: START_X
     model_var_type: FIXED_LARGE
     loss_type: MSE
-
-# ───────── logging ─────────── #
 logging:
   project: mlp_autoencoders
   log_dir: ${hydra:runtime.cwd}/autoencoders/logs
-
-# ───────── optimiser ───────── #
 optimizer:
   lr: 1e-4
   wd: 8e-5
-
-# ───────── scheduler ───────── #
 scheduler:
   factor: 0.9
   patience: 10
-
-# ───────── trainer ─────────── #
 trainer:
   model_name: autoencoder
   batch_size: 16
-  ckpt_dir: ${hydra:runtime.cwd}/autoencoders/checkpoints   # where files land
-  mode: min                                    # "min" for losses, "max" for scores
+  ckpt_dir: ${hydra:runtime.cwd}/autoencoders/checkpoints
+  mode: min
   max_epochs: 200
-  monitor: val_recon_epoch                            # scalar name to watch
-  patience : 25
-
-# ───────── trainer ─────────── #
+  monitor: val_recon_epoch
+  patience: 5
 eval:
   model_name_eval: ae
   batch_size: 4
   max_batches_eval: 1
-
-# mlp_config from root #
 mlp_config:
   params:
     model_type: mlp_3d
     out_size: 1
     hidden_neurons:
-      - 128
-      - 128
-      - 128
+    - 128
+    - 128
+    - 128
     output_type: occ
     out_act: sigmoid
     multires: 4
-    use_leaky_relu: False
-    move: False
-
+    use_leaky_relu: false
+    move: false
 dataset:
-  root: ${hydra:runtime.cwd}/mlp_weights/3d_128_plane_multires_4_manifoldplus_slower_no_clipgrad  # erased Plane
-  # root: ${hydra:runtime.cwd}/mlp_weights/ten_sample  # erased Plane
-  model_dims: [256, 256]
+  root: ${hydra:runtime.cwd}/mlp_weights/3d_128_plane_multires_4_manifoldplus_slower_no_clipgrad
+  model_dims:
+  - 256
+  - 256
   mlp_kwargs: {}
   val_split: 0.15
   test_split: 0.15
-  #val_split: 0.0
-  #test_split: 0.0
   num_workers: 1
-
-  filter_bad: True
-  filter_bad_path: ./data/plane_problematic_shapes.txt 
-  augment: none               # or "permute", "sort_permute", etc.
+  filter_bad: true
+  filter_bad_path: ./data/plane_problematic_shapes.txt
+  augment: none
   jitter_augment: false
-
   transformer_config:
     params:
       condition: false
-
-# train_plane config #
 train_plane:
   method: hyper_3d
-  calculate_metric_on_test: True
-  dedup: False
+  calculate_metric_on_test: true
+  dedup: false
   test_sample_mult: 1.1
-  filter_bad: True
+  filter_bad: true
   filter_bad_path: ./data/plane_problematic_shapes.txt
-  disable_wandb: False
+  disable_wandb: false
   dataset_dir: ./data
   dataset: 02691156
   tensorboard_log_dir: .
-  augment: False
+  augment: false
   augment_amount: 0
-  jitter_augment: False
+  jitter_augment: false
   normalization_factor: 1
   timesteps: 500
   epochs: 6000
-  scheduler: True
+  scheduler: true
   scheduler_step: 200
-  best_model_save_path:
+  best_model_save_path: null
   mode: train
   mlps_folder_train: ./mlp_weights/3d_128_plane_multires_4_manifoldplus_slower_no_clipgrad
-  model_resume_path:
+  model_resume_path: null
   sampling: ddim
   val_fid_calculation_period: 15
   lr: 0.0002
@@ -131,14 +101,14 @@ train_plane:
       model_type: mlp_3d
       out_size: 1
       hidden_neurons:
-        - 128
-        - 128
-        - 128
+      - 128
+      - 128
+      - 128
       output_type: occ
       out_act: sigmoid
       multires: 4
-      use_leaky_relu: False
-      move: False
+      use_leaky_relu: false
+      move: false
   diff_config:
     params:
       model_mean_type: START_X
@@ -150,5 +120,10 @@ train_plane:
       n_layer: 12
       n_head: 16
       split_policy: layer_by_layer
-      use_global_residual: False
+      use_global_residual: false
       condition: 'no'
+learning_rate: 0.001
+weight_decay: 1.0e-05
+lr_scheduler:
+  factor: 0.1
+  patience: 5

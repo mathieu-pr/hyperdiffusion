@@ -3,10 +3,10 @@ defaults:
 - _self_
 model:
   input_dim: 36737
-run_name: cpu_W
-device: cpu
+run_name: cuda_W
+device: cuda
 seed: 42
-ckpt_path: C:\Users\matze\Documents\0_TUM\ADL4CV\HyperDiffusion-main/autoencoders/checkpoints/ae/2025-06-18_14-26-22_cpu_W_vae_ld2_hd8_4_lr1e-04_wd8e-05_do[0.3,
+ckpt_path: /home/astrohuma/hyperdiffusion/autoencoders/checkpoints/ae/2025-06-19_19-38-48_cuda_W_vae_ld2_hd8_4_lr1e-04_wd8e-05_do[0.3,
   0.2]
 split_path: ${hydra:runtime.cwd}/autoencoders/checkpoints/splits_seed42_totallen4045_val0.15_test0.15.npz
 normalization_path: ${hydra:runtime.cwd}/autoencoders/checkpoints/normalization_stats_totallen3530_val0.15_test0.15_thresholdSTD_0.001.pt
@@ -32,7 +32,7 @@ trainer:
   mode: min
   max_epochs: 200
   monitor: val_recon_epoch
-  patience: 25
+  patience: 5
 eval:
   model_name_eval: ae
   batch_size: 4

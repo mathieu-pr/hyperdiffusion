@@ -478,6 +478,7 @@ class Trainer:
         if best_epoch_name is not None:
             print(f"Best model already saved as {best_epoch_name} in {self.ckpt_dir}")
 
-        return self.ckpt_folder
+        print(f"{self.best_value:.4f}".replace(".", "_"))
+        return self.ckpt_folder, self.best_value
 
     

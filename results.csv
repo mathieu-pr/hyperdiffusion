@@ -1,0 +1,1 @@
+run_name,latent_dim,hidden_dims,learning_rate,weight_decay,batch_norm,dropout,lr_scheduler_factor,lr_scheduler_patience,val_score
